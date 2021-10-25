@@ -1,14 +1,12 @@
 import paddle
 import paddle.nn as nn
-#from paddle.vision import models
 from paddle.nn import functional as F
 from inceptionV3 import InceptionV3
-
-from utils import pack_padded_sequence, pad_packed_sequence
 
 
 from miscc.config import cfg
 from GlobalAttention import GlobalAttentionGeneral as ATT_NET
+from utils import pad_packed_sequence, pack_padded_sequence
 
 
 class GLU(nn.Layer):
@@ -25,13 +23,13 @@ class GLU(nn.Layer):
 def conv1x1(in_planes, out_planes, bias=False):
     "1x1 convolution with padding"
     return nn.Conv2D(in_planes, out_planes, kernel_size=1, stride=1,
-                     padding=0, bias=bias)
+                     padding=0, bias_attr=bias)
 
 
 def conv3x3(in_planes, out_planes):
     "3x3 convolution with padding"
     return nn.Conv2D(in_planes, out_planes, kernel_size=3, stride=1,
-                     padding=1, bias=False)
+                     padding=1, bias_attr=False)
 
 
 # Upsale the spatial size by a factor of 2
@@ -93,10 +91,13 @@ class RNN_ENCODER(nn.Layer):
         self.nhidden = nhidden // self.num_directions
 
         self.define_module()
-        self.init_weights()
+        #self.init_weights()
 
     def define_module(self):
-        self.encoder = nn.Embedding(self.ntoken, self.ninput)
+        initrange = 0.1
+        weight = paddle.framework.ParamAttr(
+            initializer=paddle.nn.initializer.Uniform(low=-initrange, high=initrange))
+        self.encoder = nn.Embedding(self.ntoken, self.ninput, weight_attr=weight)
         self.drop = nn.Dropout(self.drop_prob)
         if self.rnn_type == 'LSTM':
             # dropout: If non-zero, introduces a dropout layer on
@@ -116,13 +117,14 @@ class RNN_ENCODER(nn.Layer):
     def init_weights(self):
         initrange = 0.1
         self.encoder.weight.data.uniform_(-initrange, initrange)
+        #self.encoder.weight.set_value(paddle.uniform(self.encoder.weight.shape,min=-initrange,max=initrange))
         # Do not need to initialize RNN parameters, which have been initialized
         # http://pytorch.org/docs/master/_modules/torch/nn/modules/rnn.html#LSTM
         # self.decoder.weight.data.uniform_(-initrange, initrange)
         # self.decoder.bias.data.fill_(0)
 
     def init_hidden(self, bsz):
-        weight = next(self.parameters()).data
+        weight = next(self.parameters()).detech()
         if self.rnn_type == 'LSTM':
             # TODO: Variable
             return (weight.new(self.nlayers * self.num_directions,
@@ -139,7 +141,7 @@ class RNN_ENCODER(nn.Layer):
         emb = self.drop(self.encoder(captions))
         #
         # Returns: a PackedSequence object
-        cap_lens = cap_lens.data.tolist()
+        cap_lens = cap_lens.detech().tolist()
         # TODO: pack_padded_sequence
         emb = pack_padded_sequence(emb, cap_lens, batch_first=True)
         # #hidden and memory (num_layers * num_directions, batch, hidden_size):
@@ -160,7 +162,7 @@ class RNN_ENCODER(nn.Layer):
             sent_emb = hidden[0].transpose(0, 1).contiguous()
         else:
             sent_emb = hidden.transpose(0, 1).contiguous()
-        sent_emb = sent_emb.view(-1, self.nhidden * self.num_directions)
+        sent_emb = sent_emb.reshape([-1, self.nhidden * self.num_directions])
         return words_emb, sent_emb
 
 
@@ -181,9 +183,12 @@ class CNN_ENCODER(nn.Layer):
         # print(model)
 
         self.define_module(model)
-        self.init_trainable_weights()
+        #self.init_trainable_weights()
 
     def define_module(self, model):
+        initrange = 0.1
+        weight = paddle.framework.ParamAttr(
+            initializer=paddle.nn.initializer.Uniform(low=-initrange, high=initrange))
         self.Conv2d_1a_3x3 = model.Conv2d_1a_3x3
         self.Conv2d_2a_3x3 = model.Conv2d_2a_3x3
         self.Conv2d_2b_3x3 = model.Conv2d_2b_3x3
@@ -201,8 +206,9 @@ class CNN_ENCODER(nn.Layer):
         self.Mixed_7b = model.Mixed_7b
         self.Mixed_7c = model.Mixed_7c
 
-        self.emb_features = conv1x1(768, self.nef)
-        self.emb_cnn_code = nn.Linear(2048, self.nef)
+
+        self.emb_features = nn.Conv2D(768, self.nef, kernel_size=1, stride=1, padding=0, weight_attr=weight, bias_attr=bias)
+        self.emb_cnn_code = nn.Linear(2048, self.nef, weight_attr=weight)
 
     def init_trainable_weights(self):
         initrange = 0.1
@@ -261,7 +267,7 @@ class CNN_ENCODER(nn.Layer):
         # 1 x 1 x 2048
         # x = F.dropout(x, training=self.training)
         # 1 x 1 x 2048
-        x = x.view(x.size(0), -1)
+        x = x.reshape([x.size(0), -1])
         # 2048
 
         # global image features
@@ -333,7 +339,7 @@ class INIT_STAGE_G(nn.Layer):
         c_z_code = paddle.concat([c_code, z_code], 1)
         # state size ngf x 4 x 4
         out_code = self.fc(c_z_code)
-        out_code = out_code.view(-1, self.gf_dim, 4, 4)
+        out_code = out_code.reshape([-1, self.gf_dim, 4, 4])
         # state size ngf/3 x 8 x 8
         out_code = self.upsample1(out_code)
         # state size ngf/4 x 16 x 16
@@ -554,7 +560,7 @@ class D_GET_LOGITS(nn.Layer):
     def forward(self, h_code, c_code=None):
         if self.bcondition and c_code is not None:
             # conditioning output
-            c_code = c_code.view(-1, self.ef_dim, 1, 1)
+            c_code = c_code.reshape([-1, self.ef_dim, 1, 1])
             c_code = c_code.repeat(1, 1, 4, 4)
             # state size (ngf+egf) x 4 x 4
             h_c_code = paddle.concat([h_code, c_code], 1)
@@ -564,7 +570,7 @@ class D_GET_LOGITS(nn.Layer):
             h_c_code = h_code
 
         output = self.outlogits(h_c_code)
-        return output.view(-1)
+        return output.reshape([-1])
 
 
 # For 64 x 64 images
