@@ -21,11 +21,6 @@ import argparse
 import numpy as np
 from PIL import Image
 
-#import torch
-#import torch.nn as nn
-#import torch.optim as optim
-#from torch.autograd import Variable
-#import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
 import paddle
 import paddle.nn as nn
@@ -85,15 +80,15 @@ def train(dataloader, cnn_model, rnn_model, batch_size,
 
         w_loss0, w_loss1, attn_maps = words_loss(words_features, words_emb, labels,
                                                  cap_lens, class_ids, batch_size)
-        w_total_loss0 += w_loss0.data
-        w_total_loss1 += w_loss1.data
+        w_total_loss0 += w_loss0.detach()
+        w_total_loss1 += w_loss1.detach()
         loss = w_loss0 + w_loss1
 
         s_loss0, s_loss1 = \
             sent_loss(sent_code, sent_emb, labels, class_ids, batch_size)
         loss += s_loss0 + s_loss1
-        s_total_loss0 += s_loss0.data
-        s_total_loss1 += s_loss1.data
+        s_total_loss0 += s_loss0.detach()
+        s_total_loss1 += s_loss1.detach()
         #
         loss.backward()
         #
@@ -155,11 +150,11 @@ def evaluate(dataloader, cnn_model, rnn_model, batch_size):
 
         w_loss0, w_loss1, attn = words_loss(words_features, words_emb, labels,
                                             cap_lens, class_ids, batch_size)
-        w_total_loss += (w_loss0 + w_loss1).data
+        w_total_loss += (w_loss0 + w_loss1).detach()
 
         s_loss0, s_loss1 = \
             sent_loss(sent_code, sent_emb, labels, class_ids, batch_size)
-        s_total_loss += (s_loss0 + s_loss1).data
+        s_total_loss += (s_loss0 + s_loss1).detach()
 
         if step == 50:
             break
