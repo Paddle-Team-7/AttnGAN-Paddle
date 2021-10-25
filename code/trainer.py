@@ -257,7 +257,8 @@ class condGANTrainer(object):
                 #######################################################
                 # (2) Generate fake images
                 ######################################################
-                noise.data.normal_(0, 1)
+                #noise = noise.detach().normal_(0, 1)
+                noise = normal(shape=noise.shape)
                 fake_imgs, _, mu, logvar = netG(noise, sent_emb, words_embs, mask)
 
                 #######################################################
@@ -273,7 +274,7 @@ class condGANTrainer(object):
                     errD.backward()
                     optimizersD[i].step()
                     errD_total += errD
-                    D_logs += 'errD%d: %.2f ' % (i, errD.data[0])
+                    D_logs += 'errD%d: %.2f ' % (i, errD.detach()[0])
 
                 #######################################################
                 # (4) Update G network: maximize log(D(G(z)))
@@ -290,12 +291,12 @@ class condGANTrainer(object):
                                    words_embs, sent_emb, match_labels, cap_lens, class_ids)
                 kl_loss = KL_loss(mu, logvar)
                 errG_total += kl_loss
-                G_logs += 'kl_loss: %.2f ' % kl_loss.data[0]
+                G_logs += 'kl_loss: %.2f ' % kl_loss.detach()[0]
                 # backward and update parameters
                 errG_total.backward()
                 optimizerG.step()
                 for p, avg_p in zip(netG.parameters(), avg_param_G):
-                    avg_p.mul_(0.999).add_(0.001, p.data)
+                    avg_p.mul_(0.999).add_(0.001, p.detach())
 
                 if gen_iterations % 100 == 0:
                     print(D_logs + '\n' + G_logs)
@@ -317,7 +318,7 @@ class condGANTrainer(object):
             print('''[%d/%d][%d]
                   Loss_D: %.2f Loss_G: %.2f Time: %.2fs'''
                   % (epoch, self.max_epoch, self.num_batches,
-                     errD_total.data[0], errG_total.data[0],
+                     errD_total.detach()[0], errG_total.detach()[0],
                      end_t - start_t))
 
             if epoch % cfg.TRAIN.SNAPSHOT_INTERVAL == 0:  # and epoch != 0:
@@ -340,7 +341,7 @@ class condGANTrainer(object):
             # img = (images[i] + 1.0) / 2
             img = images[i].add(1).div(2).mul(255).clamp(0, 255).byte()
             # range from [0, 1] to [0, 255]
-            ndarr = img.permute(1, 2, 0).data.cpu().numpy()
+            ndarr = img.permute(1, 2, 0).detach().cpu().numpy()
             im = Image.fromarray(ndarr)
             im.save(fullpath)
 
@@ -409,7 +410,8 @@ class condGANTrainer(object):
                     #######################################################
                     # (2) Generate fake images
                     ######################################################
-                    noise.data.normal_(0, 1)
+                    #noise = noise.detach().normal_(0, 1)
+                    noise = paddle.normal(shape=noise.shape)
                     fake_imgs, _, _, _ = netG(noise, sent_emb, words_embs, mask)
                     for j in range(batch_size):
                         s_tmp = '%s/single/%s' % (save_dir, keys[j])
@@ -419,7 +421,7 @@ class condGANTrainer(object):
                             mkdir_p(folder)
                         k = -1
                         # for k in range(len(fake_imgs)):
-                        im = fake_imgs[k][j].data.cpu().numpy()
+                        im = fake_imgs[k][j].detach().cpu().numpy()
                         # [-1, 1] --> [0, 255]
                         im = (im + 1.0) * 127.5
                         im = im.astype(np.uint8)
@@ -481,14 +483,15 @@ class condGANTrainer(object):
                     #######################################################
                     # (2) Generate fake images
                     ######################################################
-                    noise.data.normal_(0, 1)
+                    #noise = noise.detach().normal_(0, 1)
+                    noise = paddle.normal(shape=noise.shape)
                     fake_imgs, attention_maps, _, _ = netG(noise, sent_emb, words_embs, mask)
                     # G attention
-                    cap_lens_np = cap_lens.cpu().data.numpy()
+                    cap_lens_np = cap_lens.cpu().detach().numpy()
                     for j in range(batch_size):
                         save_name = '%s/%d_s_%d' % (save_dir, i, sorted_indices[j])
                         for k in range(len(fake_imgs)):
-                            im = fake_imgs[k][j].data.cpu().numpy()
+                            im = fake_imgs[k][j].detach().cpu().numpy()
                             im = (im + 1.0) * 127.5
                             im = im.astype(np.uint8)
                             # print('im', im.shape)
