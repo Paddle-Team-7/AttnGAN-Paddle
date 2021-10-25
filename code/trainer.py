@@ -1,11 +1,9 @@
 from __future__ import print_function
 from six.moves import range
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.autograd import Variable
-import torch.backends.cudnn as cudnn
+import paddle
+import paddle.nn as nn
+import paddle.optimizer as optim
 
 from PIL import Image
 
@@ -33,8 +31,8 @@ class condGANTrainer(object):
             mkdir_p(self.model_dir)
             mkdir_p(self.image_dir)
 
-        torch.cuda.set_device(cfg.GPU_ID)
-        cudnn.benchmark = True
+        # torch.cuda.set_device(cfg.GPU_ID)
+        # cudnn.benchmark = True
 
         self.batch_size = cfg.TRAIN.BATCH_SIZE
         self.max_epoch = cfg.TRAIN.MAX_EPOCH
@@ -54,8 +52,8 @@ class condGANTrainer(object):
         image_encoder = CNN_ENCODER(cfg.TEXT.EMBEDDING_DIM)
         img_encoder_path = cfg.TRAIN.NET_E.replace('text_encoder', 'image_encoder')
         state_dict = \
-            torch.load(img_encoder_path, map_location=lambda storage, loc: storage)
-        image_encoder.load_state_dict(state_dict)
+            paddle.load(img_encoder_path)
+        image_encoder.set_state_dict(state_dict)
         for p in image_encoder.parameters():
             p.requires_grad = False
         print('Load image encoder from:', img_encoder_path)
@@ -64,9 +62,8 @@ class condGANTrainer(object):
         text_encoder = \
             RNN_ENCODER(self.n_words, nhidden=cfg.TEXT.EMBEDDING_DIM)
         state_dict = \
-            torch.load(cfg.TRAIN.NET_E,
-                       map_location=lambda storage, loc: storage)
-        text_encoder.load_state_dict(state_dict)
+            paddle.load(cfg.TRAIN.NET_E)
+        text_encoder.set_state_dict(state_dict)
         for p in text_encoder.parameters():
             p.requires_grad = False
         print('Load text encoder from:', cfg.TRAIN.NET_E)
@@ -104,8 +101,8 @@ class condGANTrainer(object):
         epoch = 0
         if cfg.TRAIN.NET_G != '':
             state_dict = \
-                torch.load(cfg.TRAIN.NET_G, map_location=lambda storage, loc: storage)
-            netG.load_state_dict(state_dict)
+                paddle.load(cfg.TRAIN.NET_G, map_location=lambda storage, loc: storage)
+            netG.set_state_dict(state_dict)
             print('Load G from: ', cfg.TRAIN.NET_G)
             istart = cfg.TRAIN.NET_G.rfind('_') + 1
             iend = cfg.TRAIN.NET_G.rfind('.')
@@ -118,8 +115,8 @@ class condGANTrainer(object):
                     Dname = '%s/netD%d.pth' % (s_tmp, i)
                     print('Load D from: ', Dname)
                     state_dict = \
-                        torch.load(Dname, map_location=lambda storage, loc: storage)
-                    netsD[i].load_state_dict(state_dict)
+                        paddle.load(Dname, map_location=lambda storage, loc: storage)
+                    netsD[i].set_state_dict(state_dict)
         # ########################################################### #
         if cfg.CUDA:
             text_encoder = text_encoder.cuda()
@@ -133,22 +130,24 @@ class condGANTrainer(object):
         optimizersD = []
         num_Ds = len(netsD)
         for i in range(num_Ds):
-            opt = optim.Adam(netsD[i].parameters(),
-                             lr=cfg.TRAIN.DISCRIMINATOR_LR,
-                             betas=(0.5, 0.999))
+            opt = optim.Adam(learning_rate=cfg.TRAIN.DISCRIMINATOR_LR,
+                             beta1=0.5,
+                             beta2=0.999,
+                             parameters=netsD[i].parameters())
             optimizersD.append(opt)
 
-        optimizerG = optim.Adam(netG.parameters(),
-                                lr=cfg.TRAIN.GENERATOR_LR,
-                                betas=(0.5, 0.999))
+        optimizerG = optim.Adam(learning_rate=cfg.TRAIN.GENERATOR_LR,
+                                beta1=0.5,
+                                beta2=0.999,
+                                parameters=netG.parameters())
 
         return optimizerG, optimizersD
 
     def prepare_labels(self):
         batch_size = self.batch_size
-        real_labels = Variable(torch.FloatTensor(batch_size).fill_(1))
-        fake_labels = Variable(torch.FloatTensor(batch_size).fill_(0))
-        match_labels = Variable(torch.LongTensor(range(batch_size)))
+        real_labels = paddle.full_like(batch_size, 1).astype('float32')
+        fake_labels = paddle.full_like(batch_size, 0).astype('float32')
+        match_labels = paddle.to_tensor(range(batch_size)).astype('int64')
         if cfg.CUDA:
             real_labels = real_labels.cuda()
             fake_labels = fake_labels.cuda()
@@ -159,13 +158,13 @@ class condGANTrainer(object):
     def save_model(self, netG, avg_param_G, netsD, epoch):
         backup_para = copy_G_params(netG)
         load_params(netG, avg_param_G)
-        torch.save(netG.state_dict(),
+        paddle.save(netG.state_dict(),
             '%s/netG_epoch_%d.pth' % (self.model_dir, epoch))
         load_params(netG, backup_para)
         #
         for i in range(len(netsD)):
             netD = netsD[i]
-            torch.save(netD.state_dict(),
+            paddle.save(netD.state_dict(),
                 '%s/netD%d.pth' % (self.model_dir, i))
         print('Save G/Ds models.')
 
@@ -223,8 +222,8 @@ class condGANTrainer(object):
 
         batch_size = self.batch_size
         nz = cfg.GAN.Z_DIM
-        noise = Variable(torch.FloatTensor(batch_size, nz))
-        fixed_noise = Variable(torch.FloatTensor(batch_size, nz).normal_(0, 1))
+        noise = paddle.empty_like([batch_size, nz]).astype('float32')
+        fixed_noise = paddle.normal(shape=[batch_size, nz])
         if cfg.CUDA:
             noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
 
@@ -362,22 +361,22 @@ class condGANTrainer(object):
             #
             text_encoder = RNN_ENCODER(self.n_words, nhidden=cfg.TEXT.EMBEDDING_DIM)
             state_dict = \
-                torch.load(cfg.TRAIN.NET_E, map_location=lambda storage, loc: storage)
-            text_encoder.load_state_dict(state_dict)
+                paddle.load(cfg.TRAIN.NET_E, map_location=lambda storage, loc: storage)
+            text_encoder.set_state_dict(state_dict)
             print('Load text encoder from:', cfg.TRAIN.NET_E)
             text_encoder = text_encoder.cuda()
             text_encoder.eval()
 
             batch_size = self.batch_size
             nz = cfg.GAN.Z_DIM
-            noise = Variable(torch.FloatTensor(batch_size, nz), volatile=True)
+            noise = paddle.empty_like([batch_size, nz]).astype('float32')
             noise = noise.cuda()
 
             model_dir = cfg.TRAIN.NET_G
             state_dict = \
-                torch.load(model_dir, map_location=lambda storage, loc: storage)
+                paddle.load(model_dir, map_location=lambda storage, loc: storage)
             # state_dict = torch.load(cfg.TRAIN.NET_G)
-            netG.load_state_dict(state_dict)
+            netG.set_state_dict(state_dict)
             print('Load G from: ', model_dir)
 
             # the path to save generated images
@@ -437,8 +436,8 @@ class condGANTrainer(object):
             text_encoder = \
                 RNN_ENCODER(self.n_words, nhidden=cfg.TEXT.EMBEDDING_DIM)
             state_dict = \
-                torch.load(cfg.TRAIN.NET_E, map_location=lambda storage, loc: storage)
-            text_encoder.load_state_dict(state_dict)
+                paddle.load(cfg.TRAIN.NET_E)
+            text_encoder.set_state_dict(state_dict)
             print('Load text encoder from:', cfg.TRAIN.NET_E)
             text_encoder = text_encoder.cuda()
             text_encoder.eval()
@@ -451,8 +450,8 @@ class condGANTrainer(object):
             s_tmp = cfg.TRAIN.NET_G[:cfg.TRAIN.NET_G.rfind('.pth')]
             model_dir = cfg.TRAIN.NET_G
             state_dict = \
-                torch.load(model_dir, map_location=lambda storage, loc: storage)
-            netG.load_state_dict(state_dict)
+                paddle.load(model_dir)
+            netG.set_state_dict(state_dict)
             print('Load G from: ', model_dir)
             netG.cuda()
             netG.eval()
@@ -463,13 +462,13 @@ class condGANTrainer(object):
 
                 batch_size = captions.shape[0]
                 nz = cfg.GAN.Z_DIM
-                captions = Variable(torch.from_numpy(captions), volatile=True)
-                cap_lens = Variable(torch.from_numpy(cap_lens), volatile=True)
+                captions = paddle.to_tensor(captions)
+                cap_lens =paddle.to_tensor(cap_lens)
 
                 captions = captions.cuda()
                 cap_lens = cap_lens.cuda()
                 for i in range(1):  # 16
-                    noise = Variable(torch.FloatTensor(batch_size, nz), volatile=True)
+                    noise = paddle.empty_like([batch_size, nz]).astype('float32')
                     noise = noise.cuda()
                     #######################################################
                     # (1) Extract text embeddings

@@ -8,9 +8,9 @@ from nltk.tokenize import RegexpTokenizer
 from collections import defaultdict
 from miscc.config import cfg
 
-import torch
-import torch.utils.data as data
-from torch.autograd import Variable
+import paddle
+from paddle.io import Dataset
+# from torch.autograd import Variable
 import torchvision.transforms as transforms
 
 import os
@@ -30,15 +30,15 @@ def prepare_data(data):
 
     # sort data by the length in a decreasing order
     sorted_cap_lens, sorted_cap_indices = \
-        torch.sort(captions_lens, 0, True)
+        paddle.argsort(captions_lens, 0, True)
 
     real_imgs = []
     for i in range(len(imgs)):
         imgs[i] = imgs[i][sorted_cap_indices]
         if cfg.CUDA:
-            real_imgs.append(Variable(imgs[i]).cuda())
+            real_imgs.append(paddle.to_tensor(imgs[i]))
         else:
-            real_imgs.append(Variable(imgs[i]))
+            real_imgs.append(paddle.to_tensor(imgs[i]))
 
     captions = captions[sorted_cap_indices].squeeze()
     class_ids = class_ids[sorted_cap_indices].numpy()
@@ -46,11 +46,11 @@ def prepare_data(data):
     keys = [keys[i] for i in sorted_cap_indices.numpy()]
     # print('keys', type(keys), keys[-1])  # list
     if cfg.CUDA:
-        captions = Variable(captions).cuda()
-        sorted_cap_lens = Variable(sorted_cap_lens).cuda()
+        captions = paddle.to_tensor(captions)
+        sorted_cap_lens = paddle.to_tensor(sorted_cap_lens)
     else:
-        captions = Variable(captions)
-        sorted_cap_lens = Variable(sorted_cap_lens)
+        captions = paddle.to_tensor(captions)
+        sorted_cap_lens = paddle.to_tensor(sorted_cap_lens)
 
     return [real_imgs, captions, sorted_cap_lens,
             class_ids, keys]
@@ -88,10 +88,11 @@ def get_imgs(img_path, imsize, bbox=None,
     return ret
 
 
-class TextDataset(data.Dataset):
+class TextDataset(Dataset):
     def __init__(self, data_dir, split='train',
                  base_size=64,
                  transform=None, target_transform=None):
+        super(TextDataset, self).__init__()
         self.transform = transform
         self.norm = transforms.Compose([
             transforms.ToTensor(),
@@ -133,7 +134,7 @@ class TextDataset(data.Dataset):
         #
         filename_bbox = {img_file[:-4]: [] for img_file in filenames}
         numImgs = len(filenames)
-        for i in xrange(0, numImgs):
+        for i in range(numImgs):
             # bbox = [x-left, y-top, width, height]
             bbox = df_bounding_boxes.iloc[i][1:].tolist()
 
@@ -306,7 +307,6 @@ class TextDataset(data.Dataset):
         new_sent_ix = index * self.embeddings_num + sent_ix
         caps, cap_len = self.get_caption(new_sent_ix)
         return imgs, caps, cap_len, cls_id, key
-
 
     def __len__(self):
         return len(self.filenames)

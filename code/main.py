@@ -14,8 +14,9 @@ import dateutil.tz
 import argparse
 import numpy as np
 
-import torch
-import torchvision.transforms as transforms
+import paddle
+import paddle.vision.transforms as transforms
+from paddle.io import DataLoader
 
 dir_path = (os.path.abspath(os.path.join(os.path.realpath(__file__), './.')))
 sys.path.append(dir_path)
@@ -34,7 +35,7 @@ def parse_args():
 
 
 def gen_example(wordtoix, algo):
-    '''generate images from example sentences'''
+    """generate images from example sentencesz"""
     from nltk.tokenize import RegexpTokenizer
     filepath = '%s/example_filenames.txt' % (cfg.DATA_DIR)
     data_dic = {}
@@ -128,7 +129,7 @@ if __name__ == "__main__":
                           base_size=cfg.TREE.BASE_SIZE,
                           transform=image_transform)
     assert dataset
-    dataloader = torch.utils.data.DataLoader(
+    dataloader = DataLoader(
         dataset, batch_size=cfg.TRAIN.BATCH_SIZE,
         drop_last=True, shuffle=bshuffle, num_workers=int(cfg.WORKERS))
 
