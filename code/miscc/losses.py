@@ -49,7 +49,7 @@ def sent_loss(cnn_code, rnn_code, labels, class_ids,
     # --> batch_size x batch_size
     scores0 = scores0.squeeze()
     if class_ids is not None:
-        scores0.data.masked_fill_(masks, -float('inf'))
+        scores0.detach().masked_fill_(masks, -float('inf'))
     scores1 = scores0.transpose(0, 1)
     if labels is not None:
         loss0 = nn.CrossEntropyLoss()(scores0, labels)
@@ -68,7 +68,7 @@ def words_loss(img_features, words_emb, labels,
     masks = []
     att_maps = []
     similarities = []
-    cap_lens = cap_lens.data.tolist()
+    cap_lens = cap_lens.detach().tolist()
     for i in range(batch_size):
         if class_ids is not None:
             mask = (class_ids == class_ids[i]).astype(np.uint8)
@@ -94,13 +94,13 @@ def words_loss(img_features, words_emb, labels,
         word = word.transpose(1, 2).contiguous()
         weiContext = weiContext.transpose(1, 2).contiguous()
         # --> batch_size*words_num x nef
-        word = word.view(batch_size * words_num, -1)
-        weiContext = weiContext.view(batch_size * words_num, -1)
+        word = word.reshape([batch_size * words_num, -1])
+        weiContext = weiContext.reshape([batch_size * words_num, -1])
         #
         # -->batch_size*words_num
         row_sim = cosine_similarity(word, weiContext)
         # --> batch_size x words_num
-        row_sim = row_sim.view(batch_size, words_num)
+        row_sim = row_sim.reshape([batch_size, words_num])
 
         # Eq. (10)
         row_sim.mul_(cfg.TRAIN.SMOOTH.GAMMA2).exp_()
@@ -122,7 +122,7 @@ def words_loss(img_features, words_emb, labels,
 
     similarities = similarities * cfg.TRAIN.SMOOTH.GAMMA3
     if class_ids is not None:
-        similarities.data.masked_fill_(masks, -float('inf'))
+        similarities.detach().masked_fill_(masks, -float('inf'))
     similarities1 = similarities.transpose(0, 1)
     if labels is not None:
         loss0 = nn.CrossEntropyLoss()(similarities, labels)
@@ -181,7 +181,7 @@ def generator_loss(netsD, image_encoder, fake_imgs, real_labels,
             g_loss = cond_errG
         errG_total += g_loss
         # err_img = errG_total.data[0]
-        logs += 'g_loss%d: %.2f ' % (i, g_loss.data[0])
+        logs += 'g_loss%d: %.2f ' % (i, g_loss.detach()[0])
 
         # Ranking loss
         if i == (numDs - 1):
@@ -202,7 +202,7 @@ def generator_loss(netsD, image_encoder, fake_imgs, real_labels,
             # err_sent = err_sent + s_loss.data[0]
 
             errG_total += w_loss + s_loss
-            logs += 'w_loss: %.2f s_loss: %.2f ' % (w_loss.data[0], s_loss.data[0])
+            logs += 'w_loss: %.2f s_loss: %.2f ' % (w_loss.detach()[0], s_loss.detach()[0])
     return errG_total, logs
 
 
