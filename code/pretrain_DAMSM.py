@@ -21,7 +21,6 @@ import argparse
 import numpy as np
 from PIL import Image
 
-import torchvision.transforms as transforms
 import paddle
 import paddle.nn as nn
 import paddle.optimizer as optim
