@@ -4,6 +4,8 @@ import paddle.nn as nn
 from paddle.nn import functional as F
 from inceptionV3 import InceptionV3
 
+from utils import pack_padded_sequence, pad_packed_sequence
+
 
 from miscc.config import cfg
 from GlobalAttention import GlobalAttentionGeneral as ATT_NET
