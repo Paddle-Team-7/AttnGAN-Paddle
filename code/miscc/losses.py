@@ -1,5 +1,5 @@
-import torch
-import torch.nn as nn
+import paddle
+import paddle.nn as nn
 
 import numpy as np
 from miscc.config import cfg
@@ -11,9 +11,9 @@ from GlobalAttention import func_attention
 def cosine_similarity(x1, x2, dim=1, eps=1e-8):
     """Returns cosine similarity between x1 and x2, computed along dim.
     """
-    w12 = torch.sum(x1 * x2, dim)
-    w1 = torch.norm(x1, 2, dim)
-    w2 = torch.norm(x2, 2, dim)
+    w12 = paddle.sum(x1 * x2, dim)
+    w1 = paddle.norm(x1, 2, dim)
+    w2 = paddle.norm(x2, 2, dim)
     return (w12 / (w1 * w2).clamp(min=eps)).squeeze()
 
 
@@ -29,7 +29,7 @@ def sent_loss(cnn_code, rnn_code, labels, class_ids,
             masks.append(mask.reshape((1, -1)))
         masks = np.concatenate(masks, 0)
         # masks: batch_size x batch_size
-        masks = torch.ByteTensor(masks)
+        masks = paddle.to_tensor(masks).astype('uint8')
         if cfg.CUDA:
             masks = masks.cuda()
 
@@ -39,11 +39,11 @@ def sent_loss(cnn_code, rnn_code, labels, class_ids,
         rnn_code = rnn_code.unsqueeze(0)
 
     # cnn_code_norm / rnn_code_norm: seq_len x batch_size x 1
-    cnn_code_norm = torch.norm(cnn_code, 2, dim=2, keepdim=True)
-    rnn_code_norm = torch.norm(rnn_code, 2, dim=2, keepdim=True)
+    cnn_code_norm = paddle.norm(cnn_code, 2, axis=2, keepdim=True)
+    rnn_code_norm = paddle.norm(rnn_code, 2, axis=2, keepdim=True)
     # scores* / norm*: seq_len x batch_size x batch_size
-    scores0 = torch.bmm(cnn_code, rnn_code.transpose(1, 2))
-    norm0 = torch.bmm(cnn_code_norm, rnn_code_norm.transpose(1, 2))
+    scores0 = paddle.bmm(cnn_code, rnn_code.transpose(1, 2))
+    norm0 = paddle.bmm(cnn_code_norm, rnn_code_norm.transpose(1, 2))
     scores0 = scores0 / norm0.clamp(min=eps) * cfg.TRAIN.SMOOTH.GAMMA3
 
     # --> batch_size x batch_size
@@ -105,18 +105,18 @@ def words_loss(img_features, words_emb, labels,
         # Eq. (10)
         row_sim.mul_(cfg.TRAIN.SMOOTH.GAMMA2).exp_()
         row_sim = row_sim.sum(dim=1, keepdim=True)
-        row_sim = torch.log(row_sim)
+        row_sim = paddle.log(row_sim)
 
         # --> 1 x batch_size
         # similarities(i, j): the similarity between the i-th image and the j-th text description
         similarities.append(row_sim)
 
     # batch_size x batch_size
-    similarities = torch.cat(similarities, 1)
+    similarities = paddle.concat(similarities, 1)
     if class_ids is not None:
         masks = np.concatenate(masks, 0)
         # masks: batch_size x batch_size
-        masks = torch.ByteTensor(masks)
+        masks = paddle.to_tensor(masks).astype('uint8')
         if cfg.CUDA:
             masks = masks.cuda()
 
@@ -210,5 +210,5 @@ def generator_loss(netsD, image_encoder, fake_imgs, real_labels,
 def KL_loss(mu, logvar):
     # -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
     KLD_element = mu.pow(2).add_(logvar.exp()).mul_(-1).add_(1).add_(logvar)
-    KLD = torch.mean(KLD_element).mul_(-0.5)
+    KLD = paddle.mean(KLD_element).mul_(-0.5)
     return KLD

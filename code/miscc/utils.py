@@ -1,10 +1,9 @@
 import os
 import errno
 import numpy as np
-from torch.nn import init
 
-import torch
-import torch.nn as nn
+import paddle
+import paddle.nn as nn
 
 from PIL import Image, ImageDraw, ImageFont
 from copy import deepcopy
@@ -37,7 +36,7 @@ def drawCaption(convas, captions, ixtoword, vis_size, off1=2, off2=2):
     d = ImageDraw.Draw(img_txt)
     sentence_list = []
     for i in range(num):
-        cap = captions[i].data.cpu().numpy()
+        cap = captions[i].detach().cpu().numpy()
         sentence = []
         for j in range(len(cap)):
             if cap[j] == 0:
@@ -78,9 +77,9 @@ def build_super_images(real_imgs, captions, ixtoword,
         nn.Upsample(size=(vis_size, vis_size), mode='bilinear')(real_imgs)
     # [-1, 1] --> [0, 1]
     real_imgs.add_(1).div_(2).mul_(255)
-    real_imgs = real_imgs.data.numpy()
+    real_imgs = real_imgs.detach().numpy()
     # b x c x h x w --> b x h x w x c
-    real_imgs = np.transpose(real_imgs, (0, 2, 3, 1))
+    real_imgs = np.transpose(real_imgs, [0, 2, 3, 1])
     pad_sze = real_imgs.shape
     middle_pad = np.zeros([pad_sze[2], 2, 3])
     post_pad = np.zeros([pad_sze[1], pad_sze[2], 3])
@@ -89,9 +88,9 @@ def build_super_images(real_imgs, captions, ixtoword,
             nn.Upsample(size=(vis_size, vis_size), mode='bilinear')(lr_imgs)
         # [-1, 1] --> [0, 1]
         lr_imgs.add_(1).div_(2).mul_(255)
-        lr_imgs = lr_imgs.data.numpy()
+        lr_imgs = lr_imgs.detach().numpy()
         # b x c x h x w --> b x h x w x c
-        lr_imgs = np.transpose(lr_imgs, (0, 2, 3, 1))
+        lr_imgs = np.transpose(lr_imgs, [0, 2, 3, 1])
 
     # batch x seq_len x 17 x 17 --> batch x 1 x 17 x 17
     seq_len = max_word_num
@@ -104,15 +103,15 @@ def build_super_images(real_imgs, captions, ixtoword,
 
     bUpdate = 1
     for i in range(num):
-        attn = attn_maps[i].cpu().view(1, -1, att_sze, att_sze)
+        attn = attn_maps[i].cpu().reshape([1, -1, att_sze, att_sze])
         # --> 1 x 1 x 17 x 17
         attn_max = attn.max(dim=1, keepdim=True)
-        attn = torch.cat([attn_max[0], attn], 1)
+        attn = paddle.concat([attn_max[0], attn], 1)
         #
-        attn = attn.view(-1, 1, att_sze, att_sze)
-        attn = attn.repeat(1, 3, 1, 1).data.numpy()
+        attn = attn.reshape([-1, 1, att_sze, att_sze])
+        attn = attn.repeat(1, 3, 1, 1).detach().numpy()
         # n x c x h x w --> n x h x w x c
-        attn = np.transpose(attn, (0, 2, 3, 1))
+        attn = np.transpose(attn, [0, 2, 3, 1])
         num_attn = attn.shape[0]
         #
         img = real_imgs[i]
@@ -188,9 +187,9 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
         nn.Upsample(size=(vis_size, vis_size), mode='bilinear')(real_imgs)
     # [-1, 1] --> [0, 1]
     real_imgs.add_(1).div_(2).mul_(255)
-    real_imgs = real_imgs.data.numpy()
+    real_imgs = real_imgs.detach().numpy()
     # b x c x h x w --> b x h x w x c
-    real_imgs = np.transpose(real_imgs, (0, 2, 3, 1))
+    real_imgs = np.transpose(real_imgs, [0, 2, 3, 1])
     pad_sze = real_imgs.shape
     middle_pad = np.zeros([pad_sze[2], 2, 3])
 
@@ -204,12 +203,12 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
 
     bUpdate = 1
     for i in range(num):
-        attn = attn_maps[i].cpu().view(1, -1, att_sze, att_sze)
+        attn = attn_maps[i].cpu().reshape([1, -1, att_sze, att_sze])
         #
-        attn = attn.view(-1, 1, att_sze, att_sze)
-        attn = attn.repeat(1, 3, 1, 1).data.numpy()
+        attn = attn.reshape([-1, 1, att_sze, att_sze])
+        attn = attn.repeat([1, 3, 1, 1]).detach().numpy()
         # n x c x h x w --> n x h x w x c
-        attn = np.transpose(attn, (0, 2, 3, 1))
+        attn = np.transpose(attn, [0, 2, 3, 1])
         num_attn = cap_lens[i]
         thresh = 2./float(num_attn)
         #
@@ -302,7 +301,7 @@ def load_params(model, new_param):
 
 
 def copy_G_params(model):
-    flatten = deepcopy(list(p.data for p in model.parameters()))
+    flatten = deepcopy(list(p.detach() for p in model.parameters()))
     return flatten
 
 
