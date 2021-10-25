@@ -10,8 +10,7 @@ from miscc.config import cfg
 
 import paddle
 from paddle.io import Dataset
-# from torch.autograd import Variable
-import torchvision.transforms as transforms
+import paddle.vision.transforms as transforms
 
 import os
 import sys
