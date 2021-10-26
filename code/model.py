@@ -14,7 +14,7 @@ class GLU(nn.Layer):
         super(GLU, self).__init__()
 
     def forward(self, x):
-        nc = x.size(1)
+        nc = x.shape[1]
         assert nc % 2 == 0, 'channels dont divide 2!'
         nc = int(nc/2)
         return x[:, :nc] * F.sigmoid(x[:, nc:])
@@ -106,6 +106,8 @@ class RNN_ENCODER(nn.Layer):
                                self.nlayers, time_major=False,
                                dropout=self.drop_prob,
                                direction=self.bidirectional)
+            # print(self.rnn)
+            # print(self.ninput, self.nhidden, self.nlayers)
         elif self.rnn_type == 'GRU':
             self.rnn = nn.GRU(self.ninput, self.nhidden,
                               self.nlayers, time_major=False,
@@ -124,16 +126,16 @@ class RNN_ENCODER(nn.Layer):
         # self.decoder.bias.data.fill_(0)
 
     def init_hidden(self, bsz):
-        weight = next(self.parameters()).detech()
+        # weight = next(iter(self.parameters()))
         if self.rnn_type == 'LSTM':
             # TODO: Variable
-            return (weight.new(self.nlayers * self.num_directions,
-                                        bsz, self.nhidden).zero_(),
-                    weight.new(self.nlayers * self.num_directions,
-                                        bsz, self.nhidden).zero_())
+            return (paddle.zeros([self.nlayers * self.num_directions,
+                                        bsz, self.nhidden]),
+                    paddle.zeros([self.nlayers * self.num_directions,
+                                        bsz, self.nhidden]))
         else:
-            return weight.new(self.nlayers * self.num_directions,
-                                       bsz, self.nhidden).zero_()
+            return paddle.zeros([self.nlayers * self.num_directions,
+                                       bsz, self.nhidden])
 
     def forward(self, captions, cap_lens, hidden, mask=None):
         # input: torch.LongTensor of size batch x n_steps
@@ -141,9 +143,9 @@ class RNN_ENCODER(nn.Layer):
         emb = self.drop(self.encoder(captions))
         #
         # Returns: a PackedSequence object
-        cap_lens = cap_lens.detech().tolist()
+        cap_lens = cap_lens.detach().tolist()
         # TODO: pack_padded_sequence
-        emb = pack_padded_sequence(emb, cap_lens, batch_first=True)
+        # emb = pack_padded_sequence(emb, cap_lens, batch_first=True)
         # #hidden and memory (num_layers * num_directions, batch, hidden_size):
         # tensor containing the initial hidden state for each element in batch.
         # #output (batch, seq_len, hidden_size * num_directions)
@@ -153,15 +155,15 @@ class RNN_ENCODER(nn.Layer):
         # PackedSequence object
         # --> (batch, seq_len, hidden_size * num_directions)
         # TODO: pad_packed_sequence
-        output = pad_packed_sequence(output, batch_first=True)[0]
+        # output = pad_packed_sequence(output, batch_first=True)[0]
         # output = self.drop(output)
         # --> batch x hidden_size*num_directions x seq_len
-        words_emb = output.transpose(1, 2)
+        words_emb = output.transpose([0, 2, 1])
         # --> batch x num_directions*hidden_size
         if self.rnn_type == 'LSTM':
-            sent_emb = hidden[0].transpose(0, 1).contiguous()
+            sent_emb = hidden[0].transpose([1, 0, 2])
         else:
-            sent_emb = hidden.transpose(0, 1).contiguous()
+            sent_emb = hidden.transpose([1, 0, 2])
         sent_emb = sent_emb.reshape([-1, self.nhidden * self.num_directions])
         return words_emb, sent_emb
 
@@ -175,8 +177,10 @@ class CNN_ENCODER(nn.Layer):
             self.nef = 256  # define a uniform ranker
 
         model = InceptionV3()
-        url = 'https://paddle-gan-models.bj.bcebos.com/params_inceptionV3.tar.gz'
-        model.set_state_dict(paddle.utils.download.get_weights_path_from_url(url))
+        url = 'https://paddlegan.bj.bcebos.com/InceptionV3.pdparams'
+        # url = '../models/InceptionV3.pdparams'
+        # state_dict = paddle.load(url)
+        model.set_state_dict(paddle.load(paddle.utils.download.get_weights_path_from_url(url)))
         for param in model.parameters():
             param.requires_grad = False
         print('Load pretrained model from ', url)
@@ -207,7 +211,7 @@ class CNN_ENCODER(nn.Layer):
         self.Mixed_7c = model.Mixed_7c
 
 
-        self.emb_features = nn.Conv2D(768, self.nef, kernel_size=1, stride=1, padding=0, weight_attr=weight, bias_attr=bias)
+        self.emb_features = nn.Conv2D(768, self.nef, kernel_size=1, stride=1, padding=0, weight_attr=weight, bias_attr=False)
         self.emb_cnn_code = nn.Linear(2048, self.nef, weight_attr=weight)
 
     def init_trainable_weights(self):
@@ -267,7 +271,7 @@ class CNN_ENCODER(nn.Layer):
         # 1 x 1 x 2048
         # x = F.dropout(x, training=self.training)
         # 1 x 1 x 2048
-        x = x.reshape([x.size(0), -1])
+        x = x.reshape([x.shape[0], -1])
         # 2048
 
         # global image features

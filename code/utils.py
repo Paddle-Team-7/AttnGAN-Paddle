@@ -14,13 +14,14 @@ def pack_padded_sequence(input, lengths, batch_first=False):
         raise ValueError("length of all samples has to be greater than 0, "
                          "but found an element in 'lengths' that is <=0")
     if batch_first:
-        input = input.transpose(0, 1)
+        # print(input.shape)
+        input = input.transpose([1, 0, 2])
 
     steps = []
     batch_sizes = []
     lengths_iter = reversed(lengths)
     current_length = next(lengths_iter)
-    batch_size = input.size(1)
+    batch_size = input.shape[1]
     if len(lengths) != batch_size:
         raise ValueError("lengths array has incorrect size")
 
@@ -47,7 +48,7 @@ def pack_padded_sequence(input, lengths, batch_first=False):
 def pad_packed_sequence(sequence, batch_first=False):
     var_data, batch_sizes = sequence
     max_batch_size = batch_sizes[0]
-    output = var_data.data.new(len(batch_sizes), max_batch_size, *var_data.size()[1:]).zero_()
+    output = var_data.data.new(len(batch_sizes), max_batch_size, *var_data.shape[1:]).zero_()
 
     lengths = []
     data_offset = 0
@@ -64,5 +65,5 @@ def pad_packed_sequence(sequence, batch_first=False):
     lengths.reverse()
 
     if batch_first:
-        output = output.transpose([0, 1])
+        output = output.transpose([1, 0, 2])
     return output, lengths

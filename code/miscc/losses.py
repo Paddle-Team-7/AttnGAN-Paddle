@@ -14,7 +14,7 @@ def cosine_similarity(x1, x2, dim=1, eps=1e-8):
     w12 = paddle.sum(x1 * x2, dim)
     w1 = paddle.norm(x1, 2, dim)
     w2 = paddle.norm(x2, 2, dim)
-    return (w12 / (w1 * w2).clamp(min=eps)).squeeze()
+    return (w12 / (w1 * w2).clip(min=eps)).squeeze()
 
 
 def sent_loss(cnn_code, rnn_code, labels, class_ids,
@@ -29,7 +29,7 @@ def sent_loss(cnn_code, rnn_code, labels, class_ids,
             masks.append(mask.reshape((1, -1)))
         masks = np.concatenate(masks, 0)
         # masks: batch_size x batch_size
-        masks = paddle.to_tensor(masks).astype('uint8')
+        masks = paddle.to_tensor(masks).astype('bool')
         if cfg.CUDA:
             masks = masks.cuda()
 
@@ -42,15 +42,18 @@ def sent_loss(cnn_code, rnn_code, labels, class_ids,
     cnn_code_norm = paddle.norm(cnn_code, 2, axis=2, keepdim=True)
     rnn_code_norm = paddle.norm(rnn_code, 2, axis=2, keepdim=True)
     # scores* / norm*: seq_len x batch_size x batch_size
-    scores0 = paddle.bmm(cnn_code, rnn_code.transpose(1, 2))
-    norm0 = paddle.bmm(cnn_code_norm, rnn_code_norm.transpose(1, 2))
-    scores0 = scores0 / norm0.clamp(min=eps) * cfg.TRAIN.SMOOTH.GAMMA3
+    scores0 = paddle.bmm(cnn_code, rnn_code.transpose([0, 2, 1]))
+    norm0 = paddle.bmm(cnn_code_norm, rnn_code_norm.transpose([0, 2, 1]))
+    scores0 = scores0 / norm0.clip(min=eps) * cfg.TRAIN.SMOOTH.GAMMA3
 
     # --> batch_size x batch_size
     scores0 = scores0.squeeze()
     if class_ids is not None:
-        scores0.detach().masked_fill_(masks, -float('inf'))
-    scores1 = scores0.transpose(0, 1)
+        infs = paddle.zeros_like(scores0)
+        infs += -float('inf')
+        scores0 = paddle.where(masks, infs, scores0)
+        # scores0.detach().masked_fill_(masks, -float('inf'))
+    scores1 = scores0.transpose([0, 1])
     if labels is not None:
         loss0 = nn.CrossEntropyLoss()(scores0, labels)
         loss1 = nn.CrossEntropyLoss()(scores1, labels)
@@ -77,9 +80,9 @@ def words_loss(img_features, words_emb, labels,
         # Get the i-th text description
         words_num = cap_lens[i]
         # -> 1 x nef x words_num
-        word = words_emb[i, :, :words_num].unsqueeze(0).contiguous()
+        word = words_emb[i, :, :words_num].unsqueeze(0)
         # -> batch_size x nef x words_num
-        word = word.repeat(batch_size, 1, 1)
+        word = paddle.tile(word, [batch_size, 1, 1])
         # batch x nef x 17*17
         context = img_features
         """
@@ -89,10 +92,10 @@ def words_loss(img_features, words_emb, labels,
             attn: batch x words_num x 17 x 17
         """
         weiContext, attn = func_attention(word, context, cfg.TRAIN.SMOOTH.GAMMA1)
-        att_maps.append(attn[i].unsqueeze(0).contiguous())
+        att_maps.append(attn[i].unsqueeze(0))
         # --> batch_size x words_num x nef
-        word = word.transpose(1, 2).contiguous()
-        weiContext = weiContext.transpose(1, 2).contiguous()
+        word = word.transpose([0, 2, 1])
+        weiContext = weiContext.transpose([0, 2 ,1])
         # --> batch_size*words_num x nef
         word = word.reshape([batch_size * words_num, -1])
         weiContext = weiContext.reshape([batch_size * words_num, -1])
@@ -103,8 +106,8 @@ def words_loss(img_features, words_emb, labels,
         row_sim = row_sim.reshape([batch_size, words_num])
 
         # Eq. (10)
-        row_sim.mul_(cfg.TRAIN.SMOOTH.GAMMA2).exp_()
-        row_sim = row_sim.sum(dim=1, keepdim=True)
+        row_sim = row_sim.multiply(paddle.to_tensor(cfg.TRAIN.SMOOTH.GAMMA2)).exp()
+        row_sim = row_sim.sum(axis=1, keepdim=True)
         row_sim = paddle.log(row_sim)
 
         # --> 1 x batch_size
@@ -116,16 +119,19 @@ def words_loss(img_features, words_emb, labels,
     if class_ids is not None:
         masks = np.concatenate(masks, 0)
         # masks: batch_size x batch_size
-        masks = paddle.to_tensor(masks).astype('uint8')
+        masks = paddle.to_tensor(masks).astype('bool')
         if cfg.CUDA:
             masks = masks.cuda()
 
     similarities = similarities * cfg.TRAIN.SMOOTH.GAMMA3
     if class_ids is not None:
-        similarities.detach().masked_fill_(masks, -float('inf'))
-    similarities1 = similarities.transpose(0, 1)
+        infs = paddle.zeros_like(similarities)
+        infs += -float('inf')
+        similarities0 = paddle.where(masks, infs, similarities)
+        # similarities.detach().masked_fill_(masks, -float('inf'))
+    similarities1 = similarities0.transpose([0, 1])
     if labels is not None:
-        loss0 = nn.CrossEntropyLoss()(similarities, labels)
+        loss0 = nn.CrossEntropyLoss()(similarities0, labels)
         loss1 = nn.CrossEntropyLoss()(similarities1, labels)
     else:
         loss0, loss1 = None, None

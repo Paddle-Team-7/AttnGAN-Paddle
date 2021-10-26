@@ -28,8 +28,8 @@ def prepare_data(data):
     imgs, captions, captions_lens, class_ids, keys = data
 
     # sort data by the length in a decreasing order
-    sorted_cap_lens, sorted_cap_indices = \
-        paddle.argsort(captions_lens, 0, True)
+    sorted_cap_lens = paddle.sort(captions_lens, 0, True)
+    sorted_cap_indices = paddle.argsort(captions_lens, 0, True)
 
     real_imgs = []
     for i in range(len(imgs)):
@@ -51,8 +51,8 @@ def prepare_data(data):
         captions = paddle.to_tensor(captions)
         sorted_cap_lens = paddle.to_tensor(sorted_cap_lens)
 
-    return [real_imgs, captions, sorted_cap_lens,
-            class_ids, keys]
+    return (real_imgs, captions, sorted_cap_lens,
+            class_ids, keys)
 
 
 def get_imgs(img_path, imsize, bbox=None,

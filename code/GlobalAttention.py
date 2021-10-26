@@ -35,13 +35,13 @@ def func_attention(query, context, gamma1):
     context: batch x ndf x ih x iw (sourceL=ihxiw)
     mask: batch_size x sourceL
     """
-    batch_size, queryL = query.size(0), query.size(2)
-    ih, iw = context.size(2), context.size(3)
+    batch_size, queryL = query.shape[0], query.shape[2]
+    ih, iw = context.shape[2], context.shape[3]
     sourceL = ih * iw
 
     # --> batch x sourceL x ndf
     context = context.reshape([batch_size, -1, sourceL])
-    contextT = paddle.transpose(context, [0, 1, 2]).contiguous()
+    contextT = paddle.transpose(context, [0, 2, 1])
 
     # Get attention
     # (batch x sourceL x ndf)(batch x ndf x queryL)
@@ -54,14 +54,14 @@ def func_attention(query, context, gamma1):
     # --> batch x sourceL x queryL
     attn = attn.reshape([batch_size, sourceL, queryL])
     # --> batch*queryL x sourceL
-    attn = paddle.transpose(attn, [0, 1, 2]).contiguous()
+    attn = paddle.transpose(attn, [0, 2, 1])
     attn = attn.reshape([batch_size*queryL, sourceL])
     #  Eq. (9)
     attn = attn * gamma1
     attn = nn.Softmax()(attn)
     attn = attn.reshape([batch_size, queryL, sourceL])
     # --> batch x sourceL x queryL
-    attnT = paddle.transpose(attn, [0, 1, 2]).contiguous()
+    attnT = paddle.transpose(attn, [0, 2, 1])
 
     # (batch x ndf x sourceL)(batch x sourceL x queryL)
     # --> batch x ndf x queryL
@@ -85,13 +85,13 @@ class GlobalAttentionGeneral(nn.Layer):
             input: batch x idf x ih x iw (queryL=ihxiw)
             context: batch x cdf x sourceL
         """
-        ih, iw = input.size(2), input.size(3)
+        ih, iw = input.shape[2], input.shape[3]
         queryL = ih * iw
-        batch_size, sourceL = context.size(0), context.size(2)
+        batch_size, sourceL = context.shape[0], context.shape[2]
 
         # --> batch x queryL x idf
         target = input.reshape([batch_size, -1, queryL])
-        targetT = paddle.transpose(target, [0, 1, 2]).contiguous()
+        targetT = paddle.transpose(target, [0, 2, 1])
         # batch x cdf x sourceL --> batch x cdf x sourceL x 1
         sourceT = context.unsqueeze(3)
         # --> batch x idf x sourceL
@@ -112,7 +112,7 @@ class GlobalAttentionGeneral(nn.Layer):
         # --> batch x queryL x sourceL
         attn = attn.reshape([batch_size, queryL, sourceL])
         # --> batch x sourceL x queryL
-        attn = paddle.transpose(attn, [0, 1, 2]).contiguous()
+        attn = paddle.transpose(attn, [0, 2, 1])
 
         # (batch x idf x sourceL)(batch x sourceL x queryL)
         # --> batch x idf x queryL

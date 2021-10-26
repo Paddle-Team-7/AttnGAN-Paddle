@@ -27,11 +27,11 @@ FONT_MAX = 50
 
 
 def drawCaption(convas, captions, ixtoword, vis_size, off1=2, off2=2):
-    num = captions.size(0)
+    num = captions.shape[0]
     img_txt = Image.fromarray(convas)
     # get a font
     # fnt = None  # ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 50)
-    fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 50)
+    # fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 50)
     # get a drawing context
     d = ImageDraw.Draw(img_txt)
     sentence_list = []
@@ -42,8 +42,7 @@ def drawCaption(convas, captions, ixtoword, vis_size, off1=2, off2=2):
             if cap[j] == 0:
                 break
             word = ixtoword[cap[j]].encode('ascii', 'ignore').decode('ascii')
-            d.text(((j + off1) * (vis_size + off2), i * FONT_MAX), '%d:%s' % (j, word[:6]),
-                   font=fnt, fill=(255, 255, 255, 255))
+            d.text(((j + off1) * (vis_size + off2), i * FONT_MAX), '%d:%s' % (j, word[:6]), fill=(255, 255, 255, 255))
             sentence.append(word)
         sentence_list.append(sentence)
     return img_txt, sentence_list
@@ -60,7 +59,7 @@ def build_super_images(real_imgs, captions, ixtoword,
     if att_sze == 17:
         vis_size = att_sze * 16
     else:
-        vis_size = real_imgs.size(2)
+        vis_size = real_imgs.shape[2]
 
     text_convas = \
         np.ones([batch_size * FONT_MAX,
@@ -76,7 +75,7 @@ def build_super_images(real_imgs, captions, ixtoword,
     real_imgs = \
         nn.Upsample(size=(vis_size, vis_size), mode='bilinear')(real_imgs)
     # [-1, 1] --> [0, 1]
-    real_imgs.add_(1).div_(2).mul_(255)
+    real_imgs0 = (real_imgs+1)/2*255
     real_imgs = real_imgs.detach().numpy()
     # b x c x h x w --> b x h x w x c
     real_imgs = np.transpose(real_imgs, [0, 2, 3, 1])
@@ -87,7 +86,7 @@ def build_super_images(real_imgs, captions, ixtoword,
         lr_imgs = \
             nn.Upsample(size=(vis_size, vis_size), mode='bilinear')(lr_imgs)
         # [-1, 1] --> [0, 1]
-        lr_imgs.add_(1).div_(2).mul_(255)
+        lr_imgs = (lr_imgs+1)/2*255
         lr_imgs = lr_imgs.detach().numpy()
         # b x c x h x w --> b x h x w x c
         lr_imgs = np.transpose(lr_imgs, [0, 2, 3, 1])
@@ -103,13 +102,14 @@ def build_super_images(real_imgs, captions, ixtoword,
 
     bUpdate = 1
     for i in range(num):
+        # print(attn_maps.shape)
         attn = attn_maps[i].cpu().reshape([1, -1, att_sze, att_sze])
         # --> 1 x 1 x 17 x 17
-        attn_max = attn.max(dim=1, keepdim=True)
-        attn = paddle.concat([attn_max[0], attn], 1)
+        attn_max = attn.max(axis=1, keepdim=True)
+        attn = paddle.concat([attn_max, attn], 1)
         #
         attn = attn.reshape([-1, 1, att_sze, att_sze])
-        attn = attn.repeat(1, 3, 1, 1).detach().numpy()
+        attn = attn.tile([1, 3, 1, 1]).detach().numpy()
         # n x c x h x w --> n x h x w x c
         attn = np.transpose(attn, [0, 2, 3, 1])
         num_attn = attn.shape[0]
@@ -126,9 +126,7 @@ def build_super_images(real_imgs, captions, ixtoword,
         for j in range(num_attn):
             one_map = attn[j]
             if (vis_size // att_sze) > 1:
-                one_map = \
-                    skimage.transform.pyramid_expand(one_map, sigma=20,
-                                                     upscale=vis_size // att_sze)
+                one_map = skimage.transform.pyramid_expand(one_map, sigma=20, upscale=vis_size // att_sze, multichannel=True)
             row_beforeNorm.append(one_map)
             minV = one_map.min()
             maxV = one_map.max()
@@ -177,7 +175,7 @@ def build_super_images(real_imgs, captions, ixtoword,
 
 def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
                         attn_maps, att_sze, vis_size=256, topK=5):
-    batch_size = real_imgs.size(0)
+    batch_size = real_imgs.shape[0]
     max_word_num = np.max(cap_lens)
     text_convas = np.ones([batch_size * FONT_MAX,
                            max_word_num * (vis_size + 2), 3],
@@ -186,7 +184,7 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
     real_imgs = \
         nn.Upsample(size=(vis_size, vis_size), mode='bilinear')(real_imgs)
     # [-1, 1] --> [0, 1]
-    real_imgs.add_(1).div_(2).mul_(255)
+    real_imgs = (real_imgs+1)/2*255
     real_imgs = real_imgs.detach().numpy()
     # b x c x h x w --> b x h x w x c
     real_imgs = np.transpose(real_imgs, [0, 2, 3, 1])
@@ -206,7 +204,7 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
         attn = attn_maps[i].cpu().reshape([1, -1, att_sze, att_sze])
         #
         attn = attn.reshape([-1, 1, att_sze, att_sze])
-        attn = attn.repeat([1, 3, 1, 1]).detach().numpy()
+        attn = attn.tile([1, 3, 1, 1]).detach().numpy()
         # n x c x h x w --> n x h x w x c
         attn = np.transpose(attn, [0, 2, 3, 1])
         num_attn = cap_lens[i]
@@ -285,14 +283,17 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
-        nn.init.orthogonal(m.weight.data, 1.0)
+        # nn.init.orthogonal(m.weight.data, 1.0)
+        m.weight.set_value(paddle.normal(shape=m.weight.shape))
     elif classname.find('BatchNorm') != -1:
-        m.weight.data.normal_(1.0, 0.02)
-        m.bias.data.fill_(0)
+        # m.weight.data.normal_(1.0, 0.02)
+        m.weight.set_value(paddle.normal(1.0, 0.02, m.weight.shape))
+        m.bias.set_value(paddle.zeros_like(m.bias))
     elif classname.find('Linear') != -1:
-        nn.init.orthogonal(m.weight.data, 1.0)
+        # nn.init.orthogonal(m.weight.data, 1.0)
+        m.weight.set_value(paddle.normal(shape=m.weight.shape))
         if m.bias is not None:
-            m.bias.data.fill_(0.0)
+            m.bias.set_value(paddle.zeros_like(m.bias))
 
 
 def load_params(model, new_param):
