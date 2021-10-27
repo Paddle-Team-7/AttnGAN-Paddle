@@ -151,7 +151,7 @@ def discriminator_loss(netD, real_imgs, fake_imgs, conditions,
     cond_fake_logits = netD.COND_DNET(fake_features, conditions)
     cond_fake_errD = nn.BCELoss()(cond_fake_logits, fake_labels)
     #
-    batch_size = real_features.size(0)
+    batch_size = real_features.shape[0]
     cond_wrong_logits = netD.COND_DNET(real_features[:(batch_size - 1)], conditions[1:batch_size])
     cond_wrong_errD = nn.BCELoss()(cond_wrong_logits, fake_labels[1:batch_size])
 
@@ -171,7 +171,7 @@ def generator_loss(netsD, image_encoder, fake_imgs, real_labels,
                    words_embs, sent_emb, match_labels,
                    cap_lens, class_ids):
     numDs = len(netsD)
-    batch_size = real_labels.size(0)
+    batch_size = real_labels.shape[0]
     logs = ''
     # Forward
     errG_total = 0
@@ -215,6 +215,7 @@ def generator_loss(netsD, image_encoder, fake_imgs, real_labels,
 ##################################################################
 def KL_loss(mu, logvar):
     # -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-    KLD_element = mu.pow(2).add_(logvar.exp()).mul_(-1).add_(1).add_(logvar)
-    KLD = paddle.mean(KLD_element).mul_(-0.5)
+    KLD_element = 1 + logvar - mu.pow(2) - logvar.exp()
+    #mu.pow(2).add(logvar.exp()).multiply(-1).add(1).add(logvar)
+    KLD = paddle.mean(KLD_element) * (-0.5)
     return KLD

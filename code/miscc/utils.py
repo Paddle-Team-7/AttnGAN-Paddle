@@ -102,10 +102,13 @@ def build_super_images(real_imgs, captions, ixtoword,
 
     bUpdate = 1
     for i in range(num):
-        # print(attn_maps.shape)
+        #print(attn_maps[i].shape)
         attn = attn_maps[i].cpu().reshape([1, -1, att_sze, att_sze])
+        #print(attn.shape)
         # --> 1 x 1 x 17 x 17
         attn_max = attn.max(axis=1, keepdim=True)
+        #print(attn_max[0].shape)
+        #print(attn.shape)
         attn = paddle.concat([attn_max, attn], 1)
         #
         attn = attn.reshape([-1, 1, att_sze, att_sze])
@@ -126,8 +129,11 @@ def build_super_images(real_imgs, captions, ixtoword,
         for j in range(num_attn):
             one_map = attn[j]
             if (vis_size // att_sze) > 1:
-                one_map = skimage.transform.pyramid_expand(one_map, sigma=20, upscale=vis_size // att_sze, multichannel=True)
+                one_map = skimage.transform.pyramid_expand(one_map, sigma=20, upscale=vis_size / att_sze, multichannel=True)
+                #print(vis_size // att_sze)
+            #print(one_map.shape)
             row_beforeNorm.append(one_map)
+            #print(row_beforeNorm[j].shape)
             minV = one_map.min()
             maxV = one_map.max()
             if minVglobal > minV:
@@ -137,10 +143,13 @@ def build_super_images(real_imgs, captions, ixtoword,
         for j in range(seq_len + 1):
             if j < num_attn:
                 one_map = row_beforeNorm[j]
+                #print(one_map.shape)
                 one_map = (one_map - minVglobal) / (maxVglobal - minVglobal)
                 one_map *= 255
                 #
                 PIL_im = Image.fromarray(np.uint8(img))
+                #print(img.shape)
+                #print(one_map.shape)
                 PIL_att = Image.fromarray(np.uint8(one_map))
                 merged = \
                     Image.new('RGBA', (vis_size, vis_size), (0, 0, 0, 0))
@@ -204,7 +213,7 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
         attn = attn_maps[i].cpu().reshape([1, -1, att_sze, att_sze])
         #
         attn = attn.reshape([-1, 1, att_sze, att_sze])
-        attn = attn.tile([1, 3, 1, 1]).detach().numpy()
+        attn = attn.repeat([1, 3, 1, 1]).detach().numpy()
         # n x c x h x w --> n x h x w x c
         attn = np.transpose(attn, [0, 2, 3, 1])
         num_attn = cap_lens[i]
