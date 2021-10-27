@@ -112,7 +112,7 @@ class condGANTrainer(object):
                 Gname = cfg.TRAIN.NET_G
                 for i in range(len(netsD)):
                     s_tmp = Gname[:Gname.rfind('/')]
-                    Dname = '%s/netD%d.pth' % (s_tmp, i)
+                    Dname = '%s/netD%d.pdparams' % (s_tmp, i)
                     print('Load D from: ', Dname)
                     state_dict = \
                         paddle.load(Dname, map_location=lambda storage, loc: storage)
@@ -145,13 +145,14 @@ class condGANTrainer(object):
 
     def prepare_labels(self):
         batch_size = self.batch_size
-        real_labels = paddle.full_like(batch_size, 1).astype('float32')
-        fake_labels = paddle.full_like(batch_size, 0).astype('float32')
-        match_labels = paddle.to_tensor(range(batch_size)).astype('int64')
-        if cfg.CUDA:
-            real_labels = real_labels.cuda()
-            fake_labels = fake_labels.cuda()
-            match_labels = match_labels.cuda()
+        #print(batch_size)
+        real_labels = paddle.full([batch_size], 1).astype('float32')
+        fake_labels = paddle.full([batch_size], 0).astype('float32')
+        match_labels = paddle.to_tensor(list(range(batch_size))).astype('int64')
+        # if cfg.CUDA:
+        #     real_labels = real_labels.cuda()
+        #     fake_labels = fake_labels.cuda()
+        #     match_labels = match_labels.cuda()
 
         return real_labels, fake_labels, match_labels
 
@@ -159,13 +160,13 @@ class condGANTrainer(object):
         backup_para = copy_G_params(netG)
         load_params(netG, avg_param_G)
         paddle.save(netG.state_dict(),
-            '%s/netG_epoch_%d.pth' % (self.model_dir, epoch))
+            '%s/netG_epoch_%d.pdparams' % (self.model_dir, epoch))
         load_params(netG, backup_para)
         #
         for i in range(len(netsD)):
             netD = netsD[i]
             paddle.save(netD.state_dict(),
-                '%s/netD%d.pth' % (self.model_dir, i))
+                '%s/netD%d.pdparam' % (self.model_dir, i))
         print('Save G/Ds models.')
 
     def set_requires_grad_value(self, models_list, brequires):
@@ -219,29 +220,30 @@ class condGANTrainer(object):
         avg_param_G = copy_G_params(netG)
         optimizerG, optimizersD = self.define_optimizers(netG, netsD)
         real_labels, fake_labels, match_labels = self.prepare_labels()
-
+        # print(real_labels, fake_labels, match_labels)
         batch_size = self.batch_size
         nz = cfg.GAN.Z_DIM
-        noise = paddle.empty_like([batch_size, nz]).astype('float32')
+        noise = paddle.empty([batch_size, nz]).astype('float32')
         fixed_noise = paddle.normal(shape=[batch_size, nz])
         if cfg.CUDA:
             noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
-
         gen_iterations = 0
         # gen_iterations = start_epoch * self.num_batches
         for epoch in range(start_epoch, self.max_epoch):
             start_t = time.time()
 
-            data_iter = iter(self.data_loader)
-            step = 0
-            while step < self.num_batches:
+            for step, data in enumerate(self.data_loader):
+            
+            # data_iter = iter(self.data_loader)
+            # step = 0
+            # while step < self.num_batches:
                 # reset requires_grad to be trainable for all Ds
                 # self.set_requires_grad_value(netsD, True)
 
                 ######################################################
                 # (1) Prepare training data and Compute text embeddings
                 ######################################################
-                data = data_iter.next()
+                # data = data_iter.next()
                 imgs, captions, cap_lens, class_ids, keys = prepare_data(data)
 
                 hidden = text_encoder.init_hidden(batch_size)
@@ -250,15 +252,14 @@ class condGANTrainer(object):
                 words_embs, sent_emb = text_encoder(captions, cap_lens, hidden)
                 words_embs, sent_emb = words_embs.detach(), sent_emb.detach()
                 mask = (captions == 0)
-                num_words = words_embs.size(2)
-                if mask.size(1) > num_words:
+                num_words = words_embs.shape[2]
+                if mask.shape[1] > num_words:
                     mask = mask[:, :num_words]
-
                 #######################################################
                 # (2) Generate fake images
                 ######################################################
                 #noise = noise.detach().normal_(0, 1)
-                noise = normal(shape=noise.shape)
+                noise = paddle.normal(shape=noise.shape)
                 fake_imgs, _, mu, logvar = netG(noise, sent_emb, words_embs, mask)
 
                 #######################################################
@@ -266,16 +267,17 @@ class condGANTrainer(object):
                 ######################################################
                 errD_total = 0
                 D_logs = ''
+                #print('len(netsD)', len(netsD))
                 for i in range(len(netsD)):
-                    netsD[i].zero_grad()
+                    netsD[i].clear_gradients()
                     errD = discriminator_loss(netsD[i], imgs[i], fake_imgs[i],
                                               sent_emb, real_labels, fake_labels)
                     # backward and update parameters
                     errD.backward()
                     optimizersD[i].step()
+                    # ptimizersD[i].clear_grad()
                     errD_total += errD
                     D_logs += 'errD%d: %.2f ' % (i, errD.detach()[0])
-
                 #######################################################
                 # (4) Update G network: maximize log(D(G(z)))
                 ######################################################
@@ -285,7 +287,7 @@ class condGANTrainer(object):
 
                 # do not need to compute gradient for Ds
                 # self.set_requires_grad_value(netsD, False)
-                netG.zero_grad()
+                netG.clear_gradients()
                 errG_total, G_logs = \
                     generator_loss(netsD, image_encoder, fake_imgs, real_labels,
                                    words_embs, sent_emb, match_labels, cap_lens, class_ids)
@@ -293,11 +295,12 @@ class condGANTrainer(object):
                 errG_total += kl_loss
                 G_logs += 'kl_loss: %.2f ' % kl_loss.detach()[0]
                 # backward and update parameters
+                # print(netG.parameters())
                 errG_total.backward()
                 optimizerG.step()
+                # optimizerG.clear_grad()
                 for p, avg_p in zip(netG.parameters(), avg_param_G):
                     avg_p.mul_(0.999).add_(0.001, p.detach())
-
                 if gen_iterations % 100 == 0:
                     print(D_logs + '\n' + G_logs)
                 # save images
@@ -381,7 +384,7 @@ class condGANTrainer(object):
             print('Load G from: ', model_dir)
 
             # the path to save generated images
-            s_tmp = model_dir[:model_dir.rfind('.pth')]
+            s_tmp = model_dir[:model_dir.rfind('.pdparams')]
             save_dir = '%s/%s' % (s_tmp, split_dir)
             mkdir_p(save_dir)
 
@@ -449,7 +452,7 @@ class condGANTrainer(object):
                 netG = G_DCGAN()
             else:
                 netG = G_NET()
-            s_tmp = cfg.TRAIN.NET_G[:cfg.TRAIN.NET_G.rfind('.pth')]
+            s_tmp = cfg.TRAIN.NET_G[:cfg.TRAIN.NET_G.rfind('.pdparams')]
             model_dir = cfg.TRAIN.NET_G
             state_dict = \
                 paddle.load(model_dir)

@@ -105,9 +105,12 @@ class GlobalAttentionGeneral(nn.Layer):
         attn = attn.reshape([batch_size*queryL, sourceL])
         if self.mask is not None:
             # batch_size x sourceL --> batch_size*queryL x sourceL
-            mask = self.mask.repeat(queryL, 1)
+            mask = paddle.tile(self.mask, [queryL, 1])
             # TODO: data->detach()
-            attn.detach().masked_fill_(mask.detach(), -float('inf'))
+            infs = paddle.zeros_like(attn)
+            infs += -float('inf')
+            attn = paddle.where(mask, infs, attn)
+            #attn.detach().masked_fill_(mask.detach(), -float('inf'))
         attn = self.sm(attn)  # Eq. (2)
         # --> batch x queryL x sourceL
         attn = attn.reshape([batch_size, queryL, sourceL])

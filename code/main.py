@@ -105,24 +105,23 @@ if __name__ == "__main__":
         args.manualSeed = random.randint(1, 10000)
     random.seed(args.manualSeed)
     np.random.seed(args.manualSeed)
-    torch.manual_seed(args.manualSeed)
+    paddle.seed(args.manualSeed)
     if cfg.CUDA:
-        torch.cuda.manual_seed_all(args.manualSeed)
+        paddle.seed(args.manualSeed)
 
     now = datetime.datetime.now(dateutil.tz.tzlocal())
     timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
     output_dir = '../output/%s_%s_%s' % \
         (cfg.DATASET_NAME, cfg.CONFIG_NAME, timestamp)
-
     split_dir, bshuffle = 'train', True
     if not cfg.TRAIN.FLAG:
         # bshuffle = False
         split_dir = 'test'
-
+    
     # Get data loader
     imsize = cfg.TREE.BASE_SIZE * (2 ** (cfg.TREE.BRANCH_NUM - 1))
     image_transform = transforms.Compose([
-        transforms.Scale(int(imsize * 76 / 64)),
+        transforms.Resize(int(imsize * 76 / 64)),
         transforms.RandomCrop(imsize),
         transforms.RandomHorizontalFlip()])
     dataset = TextDataset(cfg.DATA_DIR, split_dir,
@@ -131,11 +130,10 @@ if __name__ == "__main__":
     assert dataset
     dataloader = DataLoader(
         dataset, batch_size=cfg.TRAIN.BATCH_SIZE,
-        drop_last=True, shuffle=bshuffle, num_workers=int(cfg.WORKERS))
+        drop_last=True, shuffle=bshuffle)  # num_workers
 
     # Define models and go to train/evaluate
     algo = trainer(output_dir, dataloader, dataset.n_words, dataset.ixtoword)
-
     start_t = time.time()
     if cfg.TRAIN.FLAG:
         algo.train()

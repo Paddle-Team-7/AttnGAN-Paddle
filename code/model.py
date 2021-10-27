@@ -180,7 +180,8 @@ class CNN_ENCODER(nn.Layer):
         url = 'https://paddlegan.bj.bcebos.com/InceptionV3.pdparams'
         # url = '../models/InceptionV3.pdparams'
         # state_dict = paddle.load(url)
-        model.set_state_dict(paddle.load(paddle.utils.download.get_weights_path_from_url(url)))
+        #model.set_state_dict(paddle.load(paddle.utils.download.get_weights_path_from_url(url)))
+        model.set_state_dict(paddle.load('../models/InceptionV3.pdparams'))
         for param in model.parameters():
             param.requires_grad = False
         print('Load pretrained model from ', url)
@@ -300,12 +301,14 @@ class CA_NET(nn.Layer):
         return mu, logvar
 
     def reparametrize(self, mu, logvar):
-        std = logvar.multiply(0.5).exp()
+        std = (logvar * 0.5).exp()
+        #print(std.shape)
         if cfg.CUDA:
             eps = paddle.normal(shape=std.shape).astype('float32')
         else:
-            eps = paddle.normal(paddle.to_tensor(std.shape).astype('float32'))
+            eps = paddle.normal(shape=std.shape).astype('float32')
         #eps = Variable(eps)
+        #print(eps.shape)
         return eps.multiply(std).add(mu)
 
     def forward(self, text_embedding):
@@ -565,7 +568,7 @@ class D_GET_LOGITS(nn.Layer):
         if self.bcondition and c_code is not None:
             # conditioning output
             c_code = c_code.reshape([-1, self.ef_dim, 1, 1])
-            c_code = c_code.repeat(1, 1, 4, 4)
+            c_code = paddle.tile(c_code, [1, 1, 4, 4])
             # state size (ngf+egf) x 4 x 4
             h_c_code = paddle.concat([h_code, c_code], 1)
             # state size ngf x in_size x in_size
