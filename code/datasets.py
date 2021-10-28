@@ -110,6 +110,7 @@ class TextDataset(Dataset):
             self.bbox = self.load_bbox()
         else:
             self.bbox = None
+        self.split = split
         split_dir = os.path.join(data_dir, split)
 
         self.filenames, self.captions, self.ixtoword, \
@@ -145,7 +146,12 @@ class TextDataset(Dataset):
     def load_captions(self, data_dir, filenames):
         all_captions = []
         for i in range(len(filenames)):
-            cap_path = '%s/text/%s.txt' % (data_dir, filenames[i])
+            if self.split == 'train':
+                cap_path = '%s/text/train2014/%s.txt' % (data_dir, filenames[i])
+            else:
+                cap_path = '%s/text/val2014/%s.txt' % (data_dir, filenames[i])
+            # print(cap_path)
+            #cap_path = '%s/text/%s.txt' % (data_dir, filenames[i])
             with open(cap_path, "r") as f:
                 captions = f.read().decode('utf8').split('\n')
                 cnt = 0
@@ -298,7 +304,12 @@ class TextDataset(Dataset):
             bbox = None
             data_dir = self.data_dir
         #
-        img_name = '%s/images/%s.jpg' % (data_dir, key)
+        if self.split == 'train':
+            img_name = '%s/images/train2014/%s.jpg' % (data_dir, key)
+        else:
+            img_name = '%s/images/val2014/%s.jpg' % (data_dir, key)
+        #
+        # img_name = '%s/images/%s.jpg' % (data_dir, key)
         imgs = get_imgs(img_name, self.imsize,
                         bbox, self.transform, normalize=self.norm)
         # random select a sentence

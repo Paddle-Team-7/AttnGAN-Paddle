@@ -118,12 +118,12 @@ class condGANTrainer(object):
                         paddle.load(Dname, map_location=lambda storage, loc: storage)
                     netsD[i].set_state_dict(state_dict)
         # ########################################################### #
-        if cfg.CUDA:
-            text_encoder = text_encoder.cuda()
-            image_encoder = image_encoder.cuda()
-            netG.cuda()
-            for i in range(len(netsD)):
-                netsD[i].cuda()
+        # if cfg.CUDA:
+        #     text_encoder = text_encoder.cuda()
+        #     image_encoder = image_encoder.cuda()
+        #     netG.cuda()
+        #     for i in range(len(netsD)):
+        #         netsD[i].cuda()
         return [text_encoder, image_encoder, netG, netsD, epoch]
 
     def define_optimizers(self, netG, netsD):
@@ -267,9 +267,11 @@ class condGANTrainer(object):
                 ######################################################
                 errD_total = 0
                 D_logs = ''
-                #print('len(netsD)', len(netsD))
+                print('len(netsD)', len(netsD))
                 for i in range(len(netsD)):
                     netsD[i].clear_gradients()
+                    if i==0:
+                        continue
                     errD = discriminator_loss(netsD[i], imgs[i], fake_imgs[i],
                                               sent_emb, real_labels, fake_labels)
                     # backward and update parameters
