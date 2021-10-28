@@ -187,7 +187,7 @@ class condGANTrainer(object):
                 img = fake_imgs[0].detach().cpu()
                 lr_img = None
             attn_maps = attention_maps[i]
-            att_sze = attn_maps.size(2)
+            att_sze = attn_maps.shape[2]
             img_set, _ = \
                 build_super_images(img, captions, self.ixtoword,
                                    attn_maps, att_sze, lr_imgs=lr_img)
@@ -201,7 +201,7 @@ class condGANTrainer(object):
         i = -1
         img = fake_imgs[i].detach()
         region_features, _ = image_encoder(img)
-        att_sze = region_features.size(2)
+        att_sze = region_features.shape[2]
         _, _, att_maps = words_loss(region_features.detach(),
                                     words_embs.detach(),
                                     None, cap_lens,
@@ -267,7 +267,7 @@ class condGANTrainer(object):
                 ######################################################
                 errD_total = 0
                 D_logs = ''
-                print('len(netsD)', len(netsD))
+                # print('len(netsD)', len(netsD))
                 for i in range(len(netsD)):
                     netsD[i].clear_gradients()
                     if i==0:
@@ -284,8 +284,8 @@ class condGANTrainer(object):
                 # (4) Update G network: maximize log(D(G(z)))
                 ######################################################
                 # compute total loss for training G
-                step += 1
-                gen_iterations += 1
+                # step += 1
+                # gen_iterations += 1
 
                 # do not need to compute gradient for Ds
                 # self.set_requires_grad_value(netsD, False)
@@ -302,11 +302,11 @@ class condGANTrainer(object):
                 optimizerG.step()
                 # optimizerG.clear_grad()
                 for p, avg_p in zip(netG.parameters(), avg_param_G):
-                    avg_p.mul_(0.999).add_(0.001, p.detach())
-                if gen_iterations % 100 == 0:
+                    avg_p = avg_p*(0.999)+(p.detach()*0.001)
+                if step % 10 == 0:
                     print(D_logs + '\n' + G_logs)
                 # save images
-                if gen_iterations % 1000 == 0:
+                if step % 100 == 0:
                     backup_para = copy_G_params(netG)
                     load_params(netG, avg_param_G)
                     self.save_img_results(netG, fixed_noise, sent_emb,
@@ -379,9 +379,9 @@ class condGANTrainer(object):
             noise = noise.cuda()
 
             model_dir = cfg.TRAIN.NET_G
-            state_dict = \
-                paddle.load(model_dir, map_location=lambda storage, loc: storage)
-            # state_dict = torch.load(cfg.TRAIN.NET_G)
+            # state_dict = \
+            #     paddle.load(model_dir, map_location=lambda storage, loc: storage)
+            state_dict = paddle.load(cfg.TRAIN.NET_G)
             netG.set_state_dict(state_dict)
             print('Load G from: ', model_dir)
 

@@ -53,7 +53,7 @@ def sent_loss(cnn_code, rnn_code, labels, class_ids,
         infs += -float('inf')
         scores0 = paddle.where(masks, infs, scores0)
         # scores0.detach().masked_fill_(masks, -float('inf'))
-    scores1 = scores0.transpose([0, 1])
+    scores1 = scores0.transpose([1, 0])
     if labels is not None:
         loss0 = nn.CrossEntropyLoss()(scores0, labels)
         loss1 = nn.CrossEntropyLoss()(scores1, labels)
@@ -127,11 +127,11 @@ def words_loss(img_features, words_emb, labels,
     if class_ids is not None:
         infs = paddle.zeros_like(similarities)
         infs += -float('inf')
-        similarities0 = paddle.where(masks, infs, similarities)
+        similarities = paddle.where(masks, infs, similarities)
         # similarities.detach().masked_fill_(masks, -float('inf'))
-    similarities1 = similarities0.transpose([0, 1])
+    similarities1 = similarities.transpose([1, 0])
     if labels is not None:
-        loss0 = nn.CrossEntropyLoss()(similarities0, labels)
+        loss0 = nn.CrossEntropyLoss()(similarities, labels)
         loss1 = nn.CrossEntropyLoss()(similarities1, labels)
     else:
         loss0, loss1 = None, None
