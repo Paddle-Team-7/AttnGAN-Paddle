@@ -1,0 +1,31 @@
+[2021/11/01 22:28:54] root INFO: errD0_0: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: True, value: 0.0
+[2021/11/01 22:28:54] root INFO: errD0_1: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 3.159046173095703e-05
+[2021/11/01 22:28:54] root INFO: errD0_2: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 0.0019321441650390625
+[2021/11/01 22:28:54] root INFO: errD0_3: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 0.009074687957763672
+[2021/11/01 22:28:54] root INFO: errD0_4: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 0.009091854095458984
+[2021/11/01 22:28:54] root INFO: errG_0: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 2.1362304687411182e-05
+[2021/11/01 22:28:54] root INFO: errG_1: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 0.0019100952148436434
+[2021/11/01 22:28:54] root INFO: errG_2: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 0.01022811889648434
+[2021/11/01 22:28:54] root INFO: errG_3: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 0.11153457641601561
+[2021/11/01 22:28:54] root INFO: errG_4: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 0.043493957519531445
+[2021/11/01 22:28:54] root INFO: kl_0: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: True, value: 0.0
+[2021/11/01 22:28:54] root INFO: kl_1: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 3.3974647521972656e-06
+[2021/11/01 22:28:54] root INFO: kl_2: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 6.389617919921875e-05
+[2021/11/01 22:28:54] root INFO: kl_3: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 0.0007855892181396484
+[2021/11/01 22:28:54] root INFO: kl_4: 
+[2021/11/01 22:28:54] root INFO: 	mean diff: check passed: False, value: 0.0016338229179382324
+[2021/11/01 22:28:54] root INFO: diff check failed

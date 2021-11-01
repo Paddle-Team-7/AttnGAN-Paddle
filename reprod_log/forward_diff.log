@@ -1,3 +1,15 @@
-[2021/10/29 17:46:25] root INFO: logits: 
-[2021/10/29 17:46:25] root INFO: 	mean diff: check passed: True, value: 4.4483286387730914e-07
-[2021/10/29 17:46:25] root INFO: diff check passed
+[2021/11/01 20:25:29] root INFO: words_emb: 
+[2021/11/01 20:25:29] root INFO: 	mean diff: check passed: True, value: 3.1414383983019434e-08
+[2021/11/01 20:25:29] root INFO: sent_emb: 
+[2021/11/01 20:25:29] root INFO: 	mean diff: check passed: True, value: 3.707847895384475e-08
+[2021/11/01 20:25:29] root INFO: features: 
+[2021/11/01 20:25:29] root INFO: 	mean diff: check passed: False, value: 3.062221367144957e-06
+[2021/11/01 20:25:29] root INFO: cnn_code: 
+[2021/11/01 20:25:29] root INFO: 	mean diff: check passed: False, value: 3.062221367144957e-06
+[2021/11/01 20:25:29] root INFO: images: 
+[2021/11/01 20:25:29] root INFO: 	mean diff: check passed: True, value: 5.397834001996671e-07
+[2021/11/01 20:25:29] root INFO: mu: 
+[2021/11/01 20:25:29] root INFO: 	mean diff: check passed: True, value: 4.153698718312171e-09
+[2021/11/01 20:25:29] root INFO: logvar: 
+[2021/11/01 20:25:29] root INFO: 	mean diff: check passed: True, value: 2.1385495596604187e-09
+[2021/11/01 20:25:29] root INFO: diff check failed

@@ -1,0 +1,7 @@
+[2021/11/01 20:46:16] root INFO: errD: 
+[2021/11/01 20:46:16] root INFO: 	mean diff: check passed: True, value: 1.1920928955078125e-07
+[2021/11/01 20:46:16] root INFO: errG_total: 
+[2021/11/01 20:46:16] root INFO: 	mean diff: check passed: False, value: 6.866455078125e-05
+[2021/11/01 20:46:16] root INFO: kl_loss: 
+[2021/11/01 20:46:16] root INFO: 	mean diff: check passed: True, value: 0.0
+[2021/11/01 20:46:16] root INFO: diff check failed
