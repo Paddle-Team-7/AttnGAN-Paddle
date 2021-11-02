@@ -37,7 +37,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train a DAMSM network')
     parser.add_argument('--cfg', dest='cfg_file',
                         help='optional config file',
-                        default='cfg/DAMSM/bird.yml', type=str)
+                        default='cfg/DAMSM/coco.yml', type=str)
     parser.add_argument('--gpu', dest='gpu_id', type=int, default=0)
     parser.add_argument('--data_dir', dest='data_dir', type=str, default='')
     parser.add_argument('--manualSeed', type=int, help='manual seed')
@@ -173,12 +173,12 @@ def build_models():
     start_epoch = 0
     if cfg.TRAIN.NET_E != '':
         state_dict = paddle.load(cfg.TRAIN.NET_E)
-        text_encoder.load_state_dict(state_dict)
+        text_encoder.set_state_dict(state_dict)
         print('Load ', cfg.TRAIN.NET_E)
         #
         name = cfg.TRAIN.NET_E.replace('text_encoder', 'image_encoder')
         state_dict = paddle.load(name)
-        image_encoder.load_state_dict(state_dict)
+        image_encoder.set_state_dict(state_dict)
         print('Load ', name)
 
         istart = cfg.TRAIN.NET_E.rfind('_') + 8

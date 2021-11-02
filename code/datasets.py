@@ -147,9 +147,9 @@ class TextDataset(Dataset):
         all_captions = []
         for i in range(len(filenames)):
             if self.split == 'train':
-                cap_path = '%s/text/train2014/%s.txt' % (data_dir, filenames[i])
+                cap_path = '%s/text/%s.txt' % (data_dir, filenames[i])
             else:
-                cap_path = '%s/text/val2014/%s.txt' % (data_dir, filenames[i])
+                cap_path = '%s/text/%s.txt' % (data_dir, filenames[i])
             # print(cap_path)
             #cap_path = '%s/text/%s.txt' % (data_dir, filenames[i])
             with open(cap_path, "r") as f:

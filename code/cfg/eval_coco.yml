@@ -5,7 +5,7 @@ DATA_DIR: '../data/coco'
 GPU_ID: 3
 WORKERS: 1
 
-B_VALIDATION: False
+B_VALIDATION: True
 TREE:
     BRANCH_NUM: 3
 
@@ -14,7 +14,7 @@ TRAIN:
     FLAG: False
     NET_G: '../models/coco_AttnGAN2.pdparams'
     B_NET_D: False
-    BATCH_SIZE: 100
+    BATCH_SIZE: 24
     NET_E: '../DAMSMencoders/coco/text_encoder100.pdparams'
 
 

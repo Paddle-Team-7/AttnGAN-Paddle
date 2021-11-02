@@ -101,12 +101,13 @@ class condGANTrainer(object):
         epoch = 0
         if cfg.TRAIN.NET_G != '':
             state_dict = \
-                paddle.load(cfg.TRAIN.NET_G, map_location=lambda storage, loc: storage)
+                paddle.load(cfg.TRAIN.NET_G)
             netG.set_state_dict(state_dict)
             print('Load G from: ', cfg.TRAIN.NET_G)
             istart = cfg.TRAIN.NET_G.rfind('_') + 1
             iend = cfg.TRAIN.NET_G.rfind('.')
             epoch = cfg.TRAIN.NET_G[istart:iend]
+            print(epoch)
             epoch = int(epoch) + 1
             if cfg.TRAIN.B_NET_D:
                 Gname = cfg.TRAIN.NET_G
@@ -115,7 +116,7 @@ class condGANTrainer(object):
                     Dname = '%s/netD%d.pdparams' % (s_tmp, i)
                     print('Load D from: ', Dname)
                     state_dict = \
-                        paddle.load(Dname, map_location=lambda storage, loc: storage)
+                        paddle.load(Dname)
                     netsD[i].set_state_dict(state_dict)
         # ########################################################### #
         # if cfg.CUDA:
@@ -166,7 +167,7 @@ class condGANTrainer(object):
         for i in range(len(netsD)):
             netD = netsD[i]
             paddle.save(netD.state_dict(),
-                '%s/netD%d.pdparam' % (self.model_dir, i))
+                '%s/netD%d.pdparams' % (self.model_dir, i))
         print('Save G/Ds models.')
 
     def set_requires_grad_value(self, models_list, brequires):
@@ -225,8 +226,8 @@ class condGANTrainer(object):
         nz = cfg.GAN.Z_DIM
         noise = paddle.empty([batch_size, nz]).astype('float32')
         fixed_noise = paddle.normal(shape=[batch_size, nz])
-        if cfg.CUDA:
-            noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
+        # if cfg.CUDA:
+            # noise, fixed_noise = noise, fixed_noise
         gen_iterations = 0
         # gen_iterations = start_epoch * self.num_batches
         for epoch in range(start_epoch, self.max_epoch):
@@ -251,7 +252,9 @@ class condGANTrainer(object):
                 # sent_emb: batch_size x nef
                 words_embs, sent_emb = text_encoder(captions, cap_lens, hidden)
                 words_embs, sent_emb = words_embs.detach(), sent_emb.detach()
+                # print(captions)
                 mask = (captions == 0)
+                # print(mask)
                 num_words = words_embs.shape[2]
                 if mask.shape[1] > num_words:
                     mask = mask[:, :num_words]
@@ -270,8 +273,8 @@ class condGANTrainer(object):
                 # print('len(netsD)', len(netsD))
                 for i in range(len(netsD)):
                     netsD[i].clear_gradients()
-                    if i==0:
-                        continue
+                    # print('i: ', i)
+                    print(imgs[i].shape, fake_imgs[i].shape, sent_emb.shape, real_labels.shape, fake_labels.shape)
                     errD = discriminator_loss(netsD[i], imgs[i], fake_imgs[i],
                                               sent_emb, real_labels, fake_labels)
                     # backward and update parameters
@@ -290,6 +293,8 @@ class condGANTrainer(object):
                 # do not need to compute gradient for Ds
                 # self.set_requires_grad_value(netsD, False)
                 netG.clear_gradients()
+                # print(cap_lens)
+                # print(class_ids)
                 errG_total, G_logs = \
                     generator_loss(netsD, image_encoder, fake_imgs, real_labels,
                                    words_embs, sent_emb, match_labels, cap_lens, class_ids)
@@ -304,6 +309,7 @@ class condGANTrainer(object):
                 for p, avg_p in zip(netG.parameters(), avg_param_G):
                     avg_p = avg_p*(0.999)+(p.detach()*0.001)
                 if step % 10 == 0:
+                    print('| epoch {:3d} | {:5d}/{:5d} batches |'.format(epoch, step, len(self.data_loader)))
                     print(D_logs + '\n' + G_logs)
                 # save images
                 if step % 100 == 0:
@@ -333,7 +339,7 @@ class condGANTrainer(object):
 
     def save_singleimages(self, images, filenames, save_dir,
                           split_dir, sentenceID=0):
-        for i in range(images.size(0)):
+        for i in range(images.shape[0]):
             s_tmp = '%s/single_samples/%s/%s' %\
                 (save_dir, split_dir, filenames[i])
             folder = s_tmp[:s_tmp.rfind('/')]
@@ -362,21 +368,20 @@ class condGANTrainer(object):
             else:
                 netG = G_NET()
             netG.apply(weights_init)
-            netG.cuda()
+            # netG.cuda()
             netG.eval()
             #
             text_encoder = RNN_ENCODER(self.n_words, nhidden=cfg.TEXT.EMBEDDING_DIM)
-            state_dict = \
-                paddle.load(cfg.TRAIN.NET_E, map_location=lambda storage, loc: storage)
+            state_dict = paddle.load(cfg.TRAIN.NET_E)
             text_encoder.set_state_dict(state_dict)
             print('Load text encoder from:', cfg.TRAIN.NET_E)
-            text_encoder = text_encoder.cuda()
+            # text_encoder = text_encoder.cuda()
             text_encoder.eval()
 
             batch_size = self.batch_size
             nz = cfg.GAN.Z_DIM
-            noise = paddle.empty_like([batch_size, nz]).astype('float32')
-            noise = noise.cuda()
+            noise = paddle.empty([batch_size, nz]).astype('float32')
+            # noise = noise.cuda()
 
             model_dir = cfg.TRAIN.NET_G
             # state_dict = \
@@ -407,9 +412,11 @@ class condGANTrainer(object):
                     # sent_emb: batch_size x nef
                     words_embs, sent_emb = text_encoder(captions, cap_lens, hidden)
                     words_embs, sent_emb = words_embs.detach(), sent_emb.detach()
+                    # print(captions)
                     mask = (captions == 0)
-                    num_words = words_embs.size(2)
-                    if mask.size(1) > num_words:
+                    # print(mask)
+                    num_words = words_embs.shape[2]
+                    if mask.shape[1] > num_words:
                         mask = mask[:, :num_words]
 
                     #######################################################
@@ -446,7 +453,7 @@ class condGANTrainer(object):
                 paddle.load(cfg.TRAIN.NET_E)
             text_encoder.set_state_dict(state_dict)
             print('Load text encoder from:', cfg.TRAIN.NET_E)
-            text_encoder = text_encoder.cuda()
+            # text_encoder = text_encoder.cuda()
             text_encoder.eval()
 
             # the path to save generated images
@@ -460,7 +467,7 @@ class condGANTrainer(object):
                 paddle.load(model_dir)
             netG.set_state_dict(state_dict)
             print('Load G from: ', model_dir)
-            netG.cuda()
+            # netG.cuda()
             netG.eval()
             for key in data_dic:
                 save_dir = '%s/%s' % (s_tmp, key)
@@ -472,11 +479,11 @@ class condGANTrainer(object):
                 captions = paddle.to_tensor(captions)
                 cap_lens =paddle.to_tensor(cap_lens)
 
-                captions = captions.cuda()
-                cap_lens = cap_lens.cuda()
+                # captions = captions.cuda()
+                # cap_lens = cap_lens.cuda()
                 for i in range(1):  # 16
-                    noise = paddle.empty_like([batch_size, nz]).astype('float32')
-                    noise = noise.cuda()
+                    noise = paddle.empty([batch_size, nz]).astype('float32')
+                    # noise = noise.cuda()
                     #######################################################
                     # (1) Extract text embeddings
                     ######################################################
@@ -512,7 +519,7 @@ class condGANTrainer(object):
                             else:
                                 im = fake_imgs[0].detach().cpu()
                             attn_maps = attention_maps[k]
-                            att_sze = attn_maps.size(2)
+                            att_sze = attn_maps.shape[2]
                             img_set, sentences = \
                                 build_super_images2(im[j].unsqueeze(0),
                                                     captions[j].unsqueeze(0),

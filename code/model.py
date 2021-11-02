@@ -138,6 +138,9 @@ class RNN_ENCODER(nn.Layer):
                                        bsz, self.nhidden])
 
     def forward(self, captions, cap_lens, hidden, mask=None):
+        # print('RNN_ENCODER captions: ', captions.shape, captions.dtype)
+        # print('RNN_ENCODER cap_lens: ', cap_lens.shape, cap_lens.dtype)
+        # print('RNN_ENCODER hiddn: ', hidden)
         # input: torch.LongTensor of size batch x n_steps
         # --> emb: batch x n_steps x ninput
         emb = self.drop(self.encoder(captions))
@@ -183,7 +186,7 @@ class CNN_ENCODER(nn.Layer):
         #model.set_state_dict(paddle.load(paddle.utils.download.get_weights_path_from_url(url)))
         model.set_state_dict(paddle.load('../models/InceptionV3.pdparams'))
         for param in model.parameters():
-            param.requires_grad = False
+            param.stop_gradient = True
         print('Load pretrained model from ', url)
         # print(model)
 
@@ -221,6 +224,7 @@ class CNN_ENCODER(nn.Layer):
         self.emb_cnn_code.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, x):
+        # print('CNN_ENCODER: ', x.shape, x.dtype)
         features = None
         # --> fixed-size input: batch x 3 x 299 x 299
         x = nn.Upsample(size=(299, 299), mode='bilinear')(x)
@@ -439,6 +443,10 @@ class G_NET(nn.Layer):
             :param mask: batch x seq_len
             :return:
         """
+        # print('G_NET z_code: ', z_code.shape, z_code.dtype)
+        # print('G_NET sent_emb: ', sent_emb.shape, sent_emb.dtype)
+        # print('G_NET word_embs: ', word_embs.shape, word_embs.dtype)
+        # print('G_NET mask: ', mask.shape, mask.dtype)
         fake_imgs = []
         att_maps = []
         c_code, mu, logvar = self.ca_net(sent_emb)
@@ -457,11 +465,12 @@ class G_NET(nn.Layer):
         if cfg.TREE.BRANCH_NUM > 2:
             h_code3, att2 = \
                 self.h_net3(h_code2, c_code, word_embs, mask)
+            # print(att2)
             fake_img3 = self.img_net3(h_code3)
             fake_imgs.append(fake_img3)
             if att2 is not None:
                 att_maps.append(att2)
-
+        # print(len(att_maps))
         return fake_imgs, att_maps, mu, logvar
 
 
@@ -492,6 +501,12 @@ class G_DCGAN(nn.Layer):
             :param mask: batch x seq_len
             :return:
         """
+        # print('________')
+        # print(z_code.shape)
+        # print(sent_emb.shape)
+        # print(word_embs.shape)
+        # print(mask.shape)
+        # print('________')
         att_maps = []
         c_code, mu, logvar = self.ca_net(sent_emb)
         if cfg.TREE.BRANCH_NUM > 0:

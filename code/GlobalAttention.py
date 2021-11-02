@@ -103,6 +103,10 @@ class GlobalAttentionGeneral(nn.Layer):
         attn = paddle.bmm(targetT, sourceT)
         # --> batch*queryL x sourceL
         attn = attn.reshape([batch_size*queryL, sourceL])
+        # print('mask: ')
+        # print(self.mask)
+        # print('attn: ')
+        # print(attn)
         if self.mask is not None:
             # batch_size x sourceL --> batch_size*queryL x sourceL
             mask = paddle.tile(self.mask, [queryL, 1])
@@ -110,6 +114,8 @@ class GlobalAttentionGeneral(nn.Layer):
             infs = paddle.zeros_like(attn)
             infs += -float('inf')
             attn = paddle.where(mask, infs, attn)
+            # print('attn2: ')
+            # print(attn)
             #attn.detach().masked_fill_(mask.detach(), -float('inf'))
         attn = self.sm(attn)  # Eq. (2)
         # --> batch x queryL x sourceL
@@ -122,5 +128,6 @@ class GlobalAttentionGeneral(nn.Layer):
         weightedContext = paddle.bmm(sourceT, attn)
         weightedContext = weightedContext.reshape([batch_size, -1, ih, iw])
         attn = attn.reshape([batch_size, -1, ih, iw])
-
+        # print('attn3: ')
+        # print(attn)
         return weightedContext, attn
