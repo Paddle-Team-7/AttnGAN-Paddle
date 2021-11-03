@@ -39,8 +39,8 @@ scikit-image
 
 
 **Pretrained Model**
-- [DAMSM for coco](https://drive.google.com/open?id=1zIrXCE9F6yfbEJIbNP5-YrEe2pZcPSGJ). Download and save it to `DAMSMencoders/`
-- [AttnGAN for coco](https://drive.google.com/open?id=1i9Xkg9nU74RAvkcqKE-rJYhjvzKAMnCi). Download and save it to `models/`
+- [DAMSM for coco](https://pan.baidu.com/s/1lM_v3ROm-RXsV1FVh4Trfw)(haqh). Download and save it to `DAMSMencoders/`
+- [AttnGAN for coco](https://pan.baidu.com/s/1lM_v3ROm-RXsV1FVh4Trfw)(haqh). Download and save it to `models/`
 
 
 **Sampling**
