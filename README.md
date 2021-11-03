@@ -50,5 +50,5 @@ scikit-image
 
  coco example              |  coco example
 :-------------------------:|:-------------------------:
-![](https://github.com/Paddle-Team-7/AttnGAN-Paddle/blob/master/COCO_val2014_000000002985_s-1.png)  |  ![](https://github.com/taoxugit/AttnGAN/blob/master/example_coco.png)
+![](https://github.com/Paddle-Team-7/AttnGAN-Paddle/blob/master/COCO_val2014_000000002985_s-1.png)  |  ![](https://github.com/Paddle-Team-7/AttnGAN-Paddle/blob/master/COCO_val2014_000000003794_s-1.png)
 
