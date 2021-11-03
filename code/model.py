@@ -183,8 +183,8 @@ class CNN_ENCODER(nn.Layer):
         url = 'https://paddlegan.bj.bcebos.com/InceptionV3.pdparams'
         # url = '../models/InceptionV3.pdparams'
         # state_dict = paddle.load(url)
-        #model.set_state_dict(paddle.load(paddle.utils.download.get_weights_path_from_url(url)))
-        model.set_state_dict(paddle.load('../models/InceptionV3.pdparams'))
+        model.set_state_dict(paddle.load(paddle.utils.download.get_weights_path_from_url(url)))
+        # model.set_state_dict(paddle.load('../models/InceptionV3.pdparams'))
         for param in model.parameters():
             param.stop_gradient = True
         print('Load pretrained model from ', url)
