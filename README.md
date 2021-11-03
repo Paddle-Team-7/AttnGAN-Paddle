@@ -14,6 +14,12 @@ Paddle
 scikit-image
 
 
+**Reproduce IS**
+
+| | Raw Paper | Reprod |
+|--|--|--|
+|Inception Score| 25.89 | 4.33 |
+
 **Data**
 
 1. Download our preprocessed metadata for [coco](https://drive.google.com/open?id=1rSnbIGNDGZeHlsUlLdahj0RJ9oo6lgH9) and save them to `data/`
